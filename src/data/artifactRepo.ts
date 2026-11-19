@@ -1,5 +1,5 @@
 import type { Repo } from './repo';
-import type { CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Target, Worker } from '../types';
+import type { Absence, AbsenceDay, CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Target, Worker } from '../types';
 
 /** The subset of the Claude artifact `db` capability this app uses. */
 export interface ArtifactDocSnap { id: string; exists: boolean; data(): Record<string, unknown> | undefined }
@@ -15,6 +15,7 @@ export interface ArtifactDb {
 
 type PerMonthDoc = { entries?: Record<string, Omit<PerEntry, 'date' | 'lineId'>> };
 type LotMonthDoc = { days?: Record<string, Omit<LotEntry, 'date'>> };
+type AbsenceMonthDoc = { days?: Record<string, Absence[]> };
 
 /** YYYY-MM keys from `from` to `to` inclusive (both YYYY-MM-DD). */
 export function monthKeys(from: string, to: string): string[] {
@@ -34,7 +35,7 @@ export function monthKeys(from: string, to: string): string[] {
  * Daily rows are grouped one document per month (perMonth/YYYY-MM, lotMonth/YYYY-MM)
  * to keep the document count small; everything else mirrors the Firestore layout.
  */
-export function makeArtifactRepo(db: ArtifactDb): Repo {
+export function makeArtifactRepo(db: ArtifactDb, uploadImage?: (f: Blob) => Promise<string>): Repo {
   const stamp = () => ({ updatedAt: new Date().toISOString() });
   const all = async <T>(name: string): Promise<T[]> =>
     (await db.collection(name).get()).docs.map((d) => ({ ...d.data(), id: d.id }) as T);
@@ -69,12 +70,12 @@ export function makeArtifactRepo(db: ArtifactDb): Repo {
 
     async getLotEntries(from: string, to: string): Promise<LotEntry[]> {
       const docs = await Promise.all(monthKeys(from, to).map((m) => read<LotMonthDoc>(`lotMonth/${m}`)));
-      return docs.flatMap((d) => Object.entries(d.days ?? {}).map(([date, v]) => ({ date, sent: v.sent, patrol: v.patrol, fg: v.fg })))
+      return docs.flatMap((d) => Object.entries(d.days ?? {}).map(([date, v]) => ({ date, sent: v.sent, patrol: v.patrol, fg: v.fg, items: v.items ?? [] })))
         .filter((e) => e.date >= from && e.date <= to).sort((a, b) => a.date.localeCompare(b.date));
     },
     async saveLotDay(e: LotEntry) {
       const path = `lotMonth/${e.date.slice(0, 7)}`;
-      const days = { ...(await read<LotMonthDoc>(path)).days, [e.date]: { sent: e.sent, patrol: e.patrol, fg: e.fg } };
+      const days = { ...(await read<LotMonthDoc>(path)).days, [e.date]: { sent: e.sent, patrol: e.patrol, fg: e.fg, items: e.items ?? [] } };
       await db.doc(path).set({ days, ...stamp() });
     },
     async deleteLotDay(date: string) {
@@ -83,6 +84,24 @@ export function makeArtifactRepo(db: ArtifactDb): Repo {
       delete days[date];
       await db.doc(path).set({ days, ...stamp() });
     },
+
+    async getAbsences(from: string, to: string): Promise<AbsenceDay[]> {
+      const docs = await Promise.all(monthKeys(from, to).map((m) => read<AbsenceMonthDoc>(`absenceMonth/${m}`)));
+      return docs.flatMap((d) => Object.entries(d.days ?? {}).map(([date, list]) => ({ date, list })))
+        .filter((e) => e.date >= from && e.date <= to).sort((a, b) => a.date.localeCompare(b.date));
+    },
+    async saveAbsenceDay(date: string, list: Absence[]) {
+      const path = `absenceMonth/${date.slice(0, 7)}`;
+      const days = { ...(await read<AbsenceMonthDoc>(path)).days };
+      if (list.length) days[date] = list; else delete days[date];
+      await db.doc(path).set({ days, ...stamp() });
+    },
+    saveSummary: (s: MonthlySummary) => db.doc(`monthlySummary/${s.month}`).set({ ...s, ...stamp() }),
+    deleteSummary: (month: string) => db.doc(`monthlySummary/${month}`).delete(),
+    deleteLine: (id: string) => db.doc(`lines/${id}`).delete(),
+    deleteWorker: (id: string) => db.doc(`workers/${id}`).delete(),
+    deleteTarget: (month: string) => db.doc(`targets/${month}`).delete(),
+    uploadImage,
 
     getCostMonths: (from: string, to: string) => between<CostMonth>('costMonthly', from, to),
     saveCostMonth: (c: CostMonth) => db.doc(`costMonthly/${c.month}`).set({ ...c, ...stamp() }),

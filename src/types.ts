@@ -36,7 +36,29 @@ export interface LotEntry {
   sent: number;
   patrol: number;
   fg: number;
+  /** Optional detail of each lot out: part number, type, note and photos. */
+  items?: LotItem[];
 }
+
+export type LotKind = 'patrol' | 'fg';
+export interface LotItem {
+  id: string;
+  partNo: string;
+  kind: LotKind;
+  note: string;
+  /** Image URLs (uploaded photos). */
+  images: string[];
+}
+
+export type AbsenceReason = 'leave' | 'absent' | 'other';
+export const ABSENCE_LABEL: Record<AbsenceReason, string> = { leave: 'ลา', absent: 'ขาด', other: 'อื่นๆ' };
+/** One worker who did not come to work on a day. */
+export interface Absence {
+  workerId: string;
+  reason: AbsenceReason;
+  note: string;
+}
+export interface AbsenceDay { date: string; list: Absence[] }
 
 export type CostCategory = 'electric' | 'laborOT' | 'laborSub' | 'consumed';
 export const COST_CATEGORIES: CostCategory[] = ['electric', 'laborOT', 'laborSub', 'consumed'];

@@ -124,14 +124,14 @@ export function ExcelChart({ title, data, bars, line, refLine, height = 300, uni
   );
 }
 
-export const PerMonthChart = ({ d, year }: { d: ReportData; year: number }) => (
-  <ExcelChart title={`% PER รายเดือน ${year}`} data={perMonthSeries(d, year)} unit="%"
+export const PerMonthChart = ({ d, year, height }: { d: ReportData; year: number; height?: number }) => (
+  <ExcelChart title={`% PER รายเดือน ${year}`} data={perMonthSeries(d, year)} unit="%" height={height}
     bars={[{ key: 'per', name: '% PER', color: XL.green, digits: 0 }]}
     line={{ key: 'target', name: 'เป้า', color: XL.target, digits: 0 }} />
 );
 
-export const LotMonthChart = ({ d, year }: { d: ReportData; year: number }) => (
-  <ExcelChart title={`Lot out % รายเดือน ${year}`} data={lotMonthSeries(d, year)} unit="%"
+export const LotMonthChart = ({ d, year, height }: { d: ReportData; year: number; height?: number }) => (
+  <ExcelChart title={`Lot out % รายเดือน ${year}`} data={lotMonthSeries(d, year)} unit="%" height={height}
     bars={[{ key: 'pct', name: 'Lot out (%)', color: XL.green, digits: 2 }]}
     line={{ key: 'target', name: 'เป้า ≤ %', color: XL.red, digits: 2 }} />
 );

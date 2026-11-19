@@ -1,10 +1,10 @@
 import { vi } from 'vitest';
 import type { Repo } from '../../src/data/repo';
-import type { CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Target, Worker } from '../../src/types';
+import type { AbsenceDay, CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Target, Worker } from '../../src/types';
 
 export interface FakeData {
   lines?: Line[]; workers?: Worker[]; per?: PerEntry[]; lot?: LotEntry[];
-  cost?: CostMonth[]; targets?: Target[]; summaries?: MonthlySummary[];
+  cost?: CostMonth[]; targets?: Target[]; summaries?: MonthlySummary[]; absences?: AbsenceDay[];
 }
 
 export const L = (id: string, setter: string, extra: Partial<Line> = {}): Line => ({
@@ -28,6 +28,14 @@ export function fakeRepo(d: FakeData = {}) {
     getCostMonths: vi.fn(async (f: string, t: string) => inRange(d.cost, 'month', f, t)),
     saveCostMonth: vi.fn(async () => {}),
     getMonthlySummaries: vi.fn(async (f: string, t: string) => inRange(d.summaries, 'month', f, t)),
+    getAbsences: vi.fn(async (f: string, t: string) => inRange(d.absences, 'date', f, t)),
+    saveAbsenceDay: vi.fn(async () => {}),
+    saveSummary: vi.fn(async () => {}),
+    deleteSummary: vi.fn(async () => {}),
+    deleteLine: vi.fn(async () => {}),
+    deleteWorker: vi.fn(async () => {}),
+    deleteTarget: vi.fn(async () => {}),
+    uploadImage: vi.fn(async () => 'https://img/x.png'),
     saveLine: vi.fn(async () => {}),
     saveWorker: vi.fn(async () => {}),
     saveTarget: vi.fn(async () => {}),

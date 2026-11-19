@@ -19,6 +19,7 @@ service cloud.firestore {
     match /perDaily/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
     match /lotDaily/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
     match /costMonthly/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
+    match /absenceDaily/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
 
     // Settings and accounts: admins only.
     match /lines/{id} { allow write: if isAdmin(); }

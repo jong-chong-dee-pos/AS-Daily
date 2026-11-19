@@ -38,6 +38,9 @@ export function summarize(d: ReportData, p: Period) {
   return { per, lot, perTarget, lotTarget, cost };
 }
 
+/** Chart height that keeps the whole dashboard on one screen. */
+const dashH = typeof window !== 'undefined' ? Math.max(220, Math.min(340, window.innerHeight - 400)) : 260;
+
 export function Dashboard() {
   const [period, setPeriod] = usePeriod();
   const year = period.kind === 'year' ? period.year : Number((period.kind === 'month' ? period.month : period.from).slice(0, 4));
@@ -63,33 +66,31 @@ export function Dashboard() {
       {s && (
         <div id="dashboard">
           <div className="cards">
-            <div className="card">
+            <div className="card c-per">
               <div className="label">% PER เฉลี่ย</div>
               <div className="value" data-testid="kpi-per">{fmtNum(s.per)}</div>
               <Meter value={s.per} target={s.perTarget} max={Math.max(s.perTarget * 1.4, s.per ?? 0)} ok={perOk} />
               <div className="target">เป้า ≥{fmtNum(s.perTarget, 0)}% {perOk !== null && <span className={`pill ${perOk ? 'ok' : 'no'}`}>{perOk ? 'ถึงเป้า' : 'ไม่ถึงเป้า'}</span>}</div>
             </div>
-            <div className="card">
+            <div className="card c-lot">
               <div className="label">Lot out</div>
               <div className="value" data-testid="kpi-lot">{fmtNum(s.lot.pct, 2)}%</div>
               <Meter value={s.lot.pct} target={s.lotTarget} max={Math.max(s.lotTarget * 3, s.lot.pct ?? 0)} ok={lotOk} />
-              <div className="target">เป้า ≤{fmtNum(s.lotTarget, 2)}% {lotOk !== null && <span className={`pill ${lotOk ? 'ok' : 'no'}`}>{lotOk ? 'ถึงเป้า' : 'ไม่ถึงเป้า'}</span>}</div>
-              <div className="target">out {s.lot.out} จาก {fmtNum(s.lot.sent, 0)} Lot ที่ส่งตรวจ</div>
+              <div className="target">เป้า ≤{fmtNum(s.lotTarget, 2)}% {lotOk !== null && <span className={`pill ${lotOk ? 'ok' : 'no'}`}>{lotOk ? 'ถึงเป้า' : 'ไม่ถึงเป้า'}</span>} {s.lot.out}/{fmtNum(s.lot.sent, 0)} Lot</div>
             </div>
-            <div className="card">
-              <div className="label">Variance ต้นทุน (บาท)</div>
-              <table><tbody>
-                {s.cost.map((c) => (
-                  <tr key={c.cat}><td>{COST_LABEL[c.cat]}</td>
-                    <td className={`num ${c.variance !== null && c.variance < 0 ? 'neg' : ''}`} data-testid={`kpi-var-${c.cat}`}>{fmtBaht(c.variance)}</td></tr>
-                ))}
-              </tbody></table>
-            </div>
+            {s.cost.map((c) => (
+              <div className="card c-cost" key={c.cat}>
+                <div className="label">Variance {COST_LABEL[c.cat]}</div>
+                <div className={`value sm ${c.variance !== null && c.variance < 0 ? 'neg' : 'met'}`} data-testid={`kpi-var-${c.cat}`}>{fmtBaht(c.variance)}</div>
+                <div className="target">Std {fmtBaht(c.standard)}</div>
+                <div className="target">Act {fmtBaht(c.actual)}</div>
+              </div>
+            ))}
           </div>
           {yd && (
-            <div className="charts single">
-              <PerMonthChart d={yd} year={year} />
-              <LotMonthChart d={yd} year={year} />
+            <div className="charts">
+              <PerMonthChart d={yd} year={year} height={dashH} />
+              <LotMonthChart d={yd} year={year} height={dashH} />
             </div>
           )}
         </div>

@@ -3,7 +3,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import type {
-  AppUser, CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Role, Target, Worker,
+  Absence, AbsenceDay, AppUser, CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Role, Target, Worker,
 } from '../types';
 
 /** Data access for one signed-in user. `uid` is stamped on every write as updatedBy. */
@@ -46,6 +46,18 @@ export function makeRepo(db: Firestore, uid: () => string) {
 
     getMonthlySummaries: (fromMonth: string, toMonth: string) =>
       between<MonthlySummary>('monthlySummary', 'month', fromMonth, toMonth),
+
+    getAbsences: async (from: string, to: string): Promise<AbsenceDay[]> =>
+      (await between<AbsenceDay>('absenceDaily', 'date', from, to)).map((a) => ({ date: a.date, list: a.list ?? [] })),
+    saveAbsenceDay: (date: string, list: Absence[]) =>
+      list.length ? setDoc(doc(db, 'absenceDaily', date), { date, list, ...stamp() }) : deleteDoc(doc(db, 'absenceDaily', date)),
+    saveSummary: (s: MonthlySummary) => setDoc(doc(db, 'monthlySummary', s.month), { ...s, ...stamp() }),
+    deleteSummary: (month: string) => deleteDoc(doc(db, 'monthlySummary', month)),
+    deleteLine: (id: string) => deleteDoc(doc(db, 'lines', id)),
+    deleteWorker: (id: string) => deleteDoc(doc(db, 'workers', id)),
+    deleteTarget: (month: string) => deleteDoc(doc(db, 'targets', month)),
+    /** Photo upload is only available where the host provides storage (the Claude artifact). */
+    uploadImage: undefined as undefined | ((f: Blob) => Promise<string>),
 
     saveLine: (l: Line) => setDoc(doc(db, 'lines', l.id), { ...strip(l), ...stamp() }),
     saveWorker: (w: Worker) => setDoc(doc(db, 'workers', w.id), { ...strip(w), ...stamp() }),

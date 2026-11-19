@@ -56,7 +56,17 @@ describe('artifact repo', () => {
     await r.saveLotDay({ date: '2026-11-07', sent: 35, patrol: 0, fg: 1 });
     await r.saveLotDay({ date: '2026-11-09', sent: 19, patrol: 0, fg: 0 });
     await r.deleteLotDay('2026-11-09');
-    expect(await r.getLotEntries('2026-11-01', '2026-11-30')).toEqual([{ date: '2026-11-07', sent: 35, patrol: 0, fg: 1 }]);
+    expect(await r.getLotEntries('2026-11-01', '2026-11-30')).toEqual([{ date: '2026-11-07', sent: 35, patrol: 0, fg: 1, items: [] }]);
+  });
+
+  it('round-trips lot part numbers and absences', async () => {
+    const { db } = memDb();
+    const r = makeArtifactRepo(db);
+    const item = { id: 'i1', partNo: 'P-100', kind: 'patrol' as const, note: 'scratch', images: ['u1'] };
+    await r.saveLotDay({ date: '2026-11-07', sent: 3, patrol: 1, fg: 0, items: [item] });
+    expect((await r.getLotEntries('2026-11-07', '2026-11-07'))[0].items).toEqual([item]);
+    await r.saveAbsenceDay('2026-11-07', [{ workerId: 'w1', reason: 'leave', note: 'ลาป่วย' }]);
+    expect(await r.getAbsences('2026-11-01', '2026-11-30')).toEqual([{ date: '2026-11-07', list: [{ workerId: 'w1', reason: 'leave', note: 'ลาป่วย' }] }]);
   });
 
   it('keeps ids on lines and filters summaries by month', async () => {

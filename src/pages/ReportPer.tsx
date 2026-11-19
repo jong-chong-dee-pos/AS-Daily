@@ -35,21 +35,57 @@ export function ReportPer() {
       {table && (
         <div id="report-per">
           {yearData.data && <div className="charts single"><PerMonthChart d={yearData.data} year={yearOf(period)} /></div>}
-          <div className="tablewrap">
-            <table>
-              <thead><tr>{table.head.map((h, i) => <th key={i} className={i >= table.firstNum ? 'num' : ''}>{h}</th>)}</tr></thead>
+          <div className="tablewrap tall">
+            <table className="pertable">
+              <thead>
+                <tr>
+                  {table.head.slice(tab === 'line' ? 1 : 0, table.colStart).map((h, i, a) => <th key={`l${i}`} rowSpan={2} className={`${i === 0 ? 'sticky-col' : ''} ${i === a.length - 1 && table.colStart > table.firstNum ? 'num' : ''}`}>{h}</th>)}
+                  <th colSpan={table.head.length - table.colStart - 1} style={{ textAlign: 'center' }}>{table.colGroup}</th>
+                  <th rowSpan={2} className="num">เฉลี่ย</th>
+                </tr>
+                <tr>
+                  {table.head.slice(table.colStart, -1).map((h, j) => {
+                    const i = j + table.colStart;
+                    return <th key={i} className={`num ${table.weekend[i] ? 'wk' : ''}`} style={{ top: 27 }}>{h}{table.headSub[i] && <small>{table.headSub[i]}</small>}</th>;
+                  })}
+                </tr>
+              </thead>
               <tbody>
-                {table.body.map((r, i) => (
-                  <tr key={i} className={r.group ? 'group' : ''}>
-                    {r.cells.map((c, j) => <td key={j} className={`${j >= table.firstNum ? 'num' : ''} ${c.below ? 'below-target' : ''}`}>{c.text}</td>)}
-                  </tr>
-                ))}
+                {table.body.map((r, i) => {
+                  const from = tab === 'line' ? 1 : 0;
+                  if (r.group && tab === 'line') {
+                    return (
+                      <tr key={i} className="group">
+                        <td className="sticky-col" colSpan={table.colStart - 1}>Setter: {r.cells[0].text} <span className="hint">(เฉลี่ย Setter)</span></td>
+                        {r.cells.slice(table.colStart).map((c, j) => <td key={j} className="num">{c.text}</td>)}
+                      </tr>
+                    );
+                  }
+                  return (
+                    <tr key={i}>
+                      {r.cells.slice(from).map((c, k) => {
+                        const j = k + from;
+                        const isNum = j >= table.firstNum;
+                        const heat = j >= table.colStart && c.raw !== undefined && c.raw !== null ? (c.below ? 'heat-bad' : 'heat-ok') : '';
+                        return <td key={j} className={`${isNum ? 'num' : ''} ${k === 0 ? 'sticky-col' : ''} ${table.weekend[j] ? 'wk' : ''} ${heat}`}>{k === 0 && tab === 'line' ? <b>{c.text}</b> : c.text}</td>;
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
-              {table.foot && <tfoot><tr>{table.foot.map((c, j) => <td key={j} className={`${j >= table.firstNum ? 'num' : ''} ${c.below ? 'below-target' : ''}`}>{c.text}</td>)}</tr></tfoot>}
+              {table.foot && <tfoot><tr>{table.foot.slice(tab === 'line' ? 1 : 0).map((c, k) => {
+                const j = k + (tab === 'line' ? 1 : 0);
+                return <td key={j} className={`${j >= table.firstNum ? 'num' : ''} ${k === 0 ? 'sticky-col' : ''} ${c.below ? 'below-target' : ''}`}>{c.text}</td>;
+              })}</tr></tfoot>}
             </table>
           </div>
+          <p className="legend-dots" style={{ marginTop: 6 }}>
+            <span><i style={{ background: 'var(--good-soft)' }} />ถึงเป้า</span>
+            <span><i style={{ background: 'var(--bad-soft)' }} />ต่ำกว่าเป้าของเดือนนั้น</span>
+            <span><i style={{ background: '#eef0f5' }} />วันอาทิตย์</span>
+            <span>ค่ารวมเฉลี่ยจากไลน์ที่ตั้งให้นับเข้าค่ารวม</span>
+          </p>
           {table.body.length === 0 && <p className="empty">ไม่มีข้อมูลในช่วงนี้</p>}
-          <p className="muted">ตัวเลขสีแดง = ต่ำกว่าเป้าของเดือนนั้น · ค่ารวมเฉลี่ยจากไลน์ที่ตั้งให้นับเข้าค่ารวม</p>
         </div>
       )}
     </section>
@@ -60,12 +96,16 @@ export const periodName = (p: Period) =>
   p.kind === 'year' ? String(p.year) : p.kind === 'month' ? p.month : `${p.from}_${p.to}`;
 
 interface Cell { text: string; below?: boolean; raw?: string | number | null }
-interface Built { head: string[]; firstNum: number; body: { cells: Cell[]; group?: boolean }[]; foot?: Cell[]; exportRows: (string | number | null)[][] }
+interface Built { head: string[]; headSub: string[]; weekend: boolean[]; colGroup: string; colStart: number; firstNum: number; body: { cells: Cell[]; group?: boolean }[]; foot?: Cell[]; exportRows: (string | number | null)[][] }
 
 export function buildTable(d: ReportData, p: Period, tab: Tab): Built {
   const byYear = p.kind === 'year';
   const cols = byYear ? monthsIn(p) : datesIn(p);
   const colHead = byYear ? cols.map((m) => THAI_MONTHS[Number(m.slice(5)) - 1]) : cols.map((c) => (p.kind === 'month' ? String(Number(c.slice(8))) : fmtDate(c).slice(0, 5)));
+  const WD = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+  const dow = (c: string) => new Date(`${c}T00:00:00Z`).getUTCDay();
+  const colSub = byYear ? cols.map(() => '') : cols.map((c) => WD[dow(c)]);
+  const colWk = byYear ? cols.map(() => false) : cols.map((c) => dow(c) === 0);
   const inCol = (c: string) => d.per.filter((e) => (byYear ? e.date.startsWith(c) : e.date === c));
   const tgt = (c: string) => targetFor(d.targets, byYear ? c : monthOf(c)).perTarget;
   const cell = (v: number | null, c?: string): Cell => ({ text: fmtNum(v), raw: v, below: v !== null && c !== undefined && v < tgt(c) });
@@ -94,7 +134,7 @@ export function buildTable(d: ReportData, p: Period, tab: Tab): Built {
     });
     const overallCols = byYear ? monthlyPer(cols, d.per, lines, d.summaries) : cols.map((c) => overallAverage(inCol(c), lines));
     const overall = byYear ? mean(overallCols.filter((v): v is number => v !== null)) : overallAverage(d.per, lines);
-    foot = [{ text: 'รวม' }, { text: '' }, { text: `เป้า ${monthsIn(p).map((m) => targetFor(d.targets, m).perTarget).filter((v, i, a) => a.indexOf(v) === i).join('/')}%` },
+    foot = [{ text: '' }, { text: 'รวมทุกไลน์' }, { text: `เป้า ${monthsIn(p).map((m) => targetFor(d.targets, m).perTarget).filter((v, i, a) => a.indexOf(v) === i).join('/')}%` },
       ...overallCols.map((v, i) => cell(v, cols[i])), { ...cell(overall), below: periodTarget(overall) }];
   } else if (tab === 'setter') {
     head = ['Setter', ...colHead, 'เฉลี่ย'];
@@ -115,8 +155,13 @@ export function buildTable(d: ReportData, p: Period, tab: Tab): Built {
       ] }));
   }
 
+  const lead = head.length - cols.length - 1;
+  const tail = head.length - lead - cols.length;
+  const headSub = [...Array(lead).fill(''), ...colSub, ...Array(tail).fill('')];
+  const weekend = [...Array(lead).fill(false), ...colWk, ...Array(tail).fill(false)];
+  const colGroup = byYear ? `เดือน (ปี ${p.kind === 'year' ? p.year : ''})` : p.kind === 'month' ? `วันที่ใน ${fmtMonth(p.month)}` : 'วันที่';
   const toRow = (cells: Cell[]) => cells.map((c) => (c.raw !== undefined ? (c.raw === null ? null : Math.round(Number(c.raw) * 100) / 100) : c.text));
   const title = p.kind === 'month' ? fmtMonth(p.month) : p.kind === 'year' ? `ปี ${p.year}` : `${fmtDate(p.from)} – ${fmtDate(p.to)}`;
-  return { head, firstNum, body, foot,
+  return { head, headSub, weekend, colGroup, colStart: lead, firstNum, body, foot,
     exportRows: [[`% PER ${title}`], head, ...body.map((r) => toRow(r.cells)), ...(foot ? [toRow(foot)] : [])] };
 }

@@ -57,6 +57,6 @@ describe('EntryDaily', () => {
       { date: '2026-11-04', lineId: 'sl1', workerIds: ['w1'], per: 125.5 },
       { date: '2026-11-04', lineId: 'sl2', workerIds: ['w2'], per: null },
     ]);
-    expect(repo.saveLotDay).toHaveBeenCalledWith({ date: '2026-11-04', sent: 20, patrol: 1, fg: 0 });
+    expect(repo.saveLotDay).toHaveBeenCalledWith({ date: '2026-11-04', sent: 20, patrol: 1, fg: 0, items: [] });
   });
 });
