@@ -7,6 +7,7 @@ import { usePeriod } from '../ui/usePeriod';
 import { fmtBaht, fmtMonth } from '../ui/format';
 import { COST_LABEL } from '../ui/labels';
 import { ExportButtons } from '../ui/ExportButtons';
+import { CostChart, yearOf } from '../ui/ExcelCharts';
 import { periodName } from './ReportPer';
 
 export interface CostRow { month: string; cat: CostCategory; standard: number | null; actual: number | null; variance: number | null }
@@ -30,6 +31,8 @@ export function ReportCost() {
   const [period, setPeriod] = usePeriod();
   const { data, error } = useReportData(period);
   const rows = data ? buildCostRows(data, period) : [];
+  const year = yearOf(period);
+  const yd = useReportData({ kind: 'year', year }).data;
   const months = monthsIn(period);
   const head = ['หมวด', 'เดือน', 'Standard', 'Actual', 'Variance'];
   const exportRows = [[`ต้นทุน ${periodName(period)}`], head,
@@ -49,6 +52,7 @@ export function ReportCost() {
             return (
               <div key={cat}>
                 <h2>{COST_LABEL[cat]}</h2>
+                {yd && <div className="charts single"><CostChart d={yd} year={year} cat={cat} label={`Process (${COST_LABEL[cat]})`} /></div>}
                 <div className="tablewrap">
                   <table>
                     <thead><tr><th>เดือน</th><th className="num">Standard (บาท)</th><th className="num">Actual (บาท)</th><th className="num">Variance</th></tr></thead>

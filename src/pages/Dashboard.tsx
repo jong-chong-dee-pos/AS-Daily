@@ -1,4 +1,3 @@
-import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line as RLine, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useReportData, type ReportData } from '../data/useReportData';
 import { monthsIn } from '../calc/period';
 import { mean, overallAverage } from '../calc/per';
@@ -8,9 +7,10 @@ import { targetFor } from '../calc/cost';
 import { COST_CATEGORIES, type Period } from '../types';
 import { FilterBar } from '../ui/FilterBar';
 import { usePeriod } from '../ui/usePeriod';
-import { fmtBaht, fmtDate, fmtMonth, fmtNum, THAI_MONTHS } from '../ui/format';
+import { fmtBaht, fmtDate, fmtMonth, fmtNum } from '../ui/format';
 import { COST_LABEL } from '../ui/labels';
 import { ExportButtons } from '../ui/ExportButtons';
+import { LotMonthChart, PerMonthChart } from '../ui/ExcelCharts';
 import { buildCostRows, costTotal } from './ReportCost';
 import { periodName } from './ReportPer';
 
@@ -24,14 +24,6 @@ function Meter({ value, target, max, ok }: { value: number | null; target: numbe
     </div>
   );
 }
-
-const GRAD = (
-  <defs>
-    <linearGradient id="barOk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#12a3b8" /><stop offset="1" stopColor="#0b7285" stopOpacity=".85" /></linearGradient>
-    <linearGradient id="barBad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ef8a7f" /><stop offset="1" stopColor="#c0362c" stopOpacity=".85" /></linearGradient>
-  </defs>
-);
-const AXIS = { fill: 'var(--ink-3)', fontSize: 12 };
 
 export function summarize(d: ReportData, p: Period) {
   const months = monthsIn(p);
@@ -53,17 +45,6 @@ export function Dashboard() {
   const yearData = useReportData({ kind: 'year', year });
   const s = data ? summarize(data, period) : null;
   const yd = yearData.data;
-  const months = monthsIn({ kind: 'year', year });
-  const chart = yd ? (() => {
-    const per = monthlyPer(months, yd.per, yd.lines, yd.summaries);
-    const lot = monthlyLot(months, yd.lot, yd.summaries);
-    return months.map((m, i) => ({
-      name: THAI_MONTHS[i], per: per[i] === null ? null : Math.round(per[i]! * 10) / 10,
-      perTarget: targetFor(yd.targets, m).perTarget,
-      lot: lot[i].pct === null ? null : Math.round(lot[i].pct! * 100) / 100,
-      lotTarget: targetFor(yd.targets, m).lotOutTarget,
-    }));
-  })() : [];
   const title = period.kind === 'month' ? fmtMonth(period.month) : period.kind === 'year' ? `ปี ${period.year}` : `${fmtDate(period.from)} – ${fmtDate(period.to)}`;
   const perOk = s && s.per !== null ? s.per >= s.perTarget : null;
   const lotOk = s && s.lot.pct !== null ? s.lot.pct <= s.lotTarget : null;
@@ -105,42 +86,12 @@ export function Dashboard() {
               </tbody></table>
             </div>
           </div>
-          <div className="charts">
-            <div className="chart">
-              <h2>% PER รายเดือน {year}</h2>
-              <p className="muted">เส้นประคือเป้า แท่งสีแดงคือเดือนที่ต่ำกว่าเป้า</p>
-              <ResponsiveContainer width="100%" height={260}>
-                <ComposedChart data={chart} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-                  {GRAD}
-                  <CartesianGrid stroke="var(--hair)" vertical={false} />
-                  <XAxis dataKey="name" tick={AXIS} axisLine={false} tickLine={false} />
-                  <YAxis domain={[80, 'auto']} tick={AXIS} axisLine={false} tickLine={false} />
-                  <Tooltip formatter={(v: number, k: string) => [fmtNum(v), k === 'per' ? '% PER' : 'เป้า']} />
-                  <Bar dataKey="per" radius={[8, 8, 3, 3]} maxBarSize={34}>
-                    {chart.map((c, i) => <Cell key={i} fill={c.per !== null && c.per < c.perTarget ? 'url(#barBad)' : 'url(#barOk)'} />)}
-                  </Bar>
-                  <RLine dataKey="perTarget" stroke="var(--ink-2)" strokeDasharray="4 4" strokeWidth={1.5} dot={false} type="stepAfter" />
-                </ComposedChart>
-              </ResponsiveContainer>
+          {yd && (
+            <div className="charts single">
+              <PerMonthChart d={yd} year={year} />
+              <LotMonthChart d={yd} year={year} />
             </div>
-            <div className="chart">
-              <h2>Lot out % รายเดือน {year}</h2>
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={chart} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-                  {GRAD}
-                  <CartesianGrid stroke="var(--hair)" vertical={false} />
-                  <XAxis dataKey="name" tick={AXIS} axisLine={false} tickLine={false} />
-                  <YAxis tick={AXIS} axisLine={false} tickLine={false} />
-                  <Tooltip formatter={(v: number, k: string) => [`${fmtNum(v, 2)}%`, k === 'lot' ? 'Lot out' : 'เป้า']} />
-                  <ReferenceLine y={chart[0]?.lotTarget ?? 0.5} stroke="var(--ink-2)" strokeDasharray="4 4" strokeWidth={1.5} />
-                  <Bar dataKey="lot" radius={[8, 8, 3, 3]} maxBarSize={34}>
-                    {chart.map((c, i) => <Cell key={i} fill={c.lot !== null && c.lot > c.lotTarget ? 'url(#barBad)' : 'url(#barOk)'} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-              <p className="muted">เส้นประคือเป้า ≤ {fmtNum(chart[0]?.lotTarget ?? 0.5, 2)}% แท่งสีแดงคือเดือนที่เกินเป้า</p>
-            </div>
-          </div>
+          )}
         </div>
       )}
     </section>

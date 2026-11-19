@@ -9,6 +9,7 @@ import { FilterBar } from '../ui/FilterBar';
 import { usePeriod } from '../ui/usePeriod';
 import { fmtDate, fmtMonth, fmtNum, THAI_MONTHS } from '../ui/format';
 import { ExportButtons } from '../ui/ExportButtons';
+import { PerMonthChart, yearOf } from '../ui/ExcelCharts';
 
 type Tab = 'line' | 'setter' | 'person';
 
@@ -16,6 +17,7 @@ export function ReportPer() {
   const [period, setPeriod] = usePeriod();
   const { data, error } = useReportData(period);
   const [tab, setTab] = useState<Tab>('line');
+  const yearData = useReportData({ kind: 'year', year: yearOf(period) });
   const table = useMemo(() => (data ? buildTable(data, period, tab) : null), [data, period, tab]);
   return (
     <section>
@@ -32,6 +34,7 @@ export function ReportPer() {
       {!data && !error && <p className="empty">กำลังโหลด…</p>}
       {table && (
         <div id="report-per">
+          {yearData.data && <div className="charts single"><PerMonthChart d={yearData.data} year={yearOf(period)} /></div>}
           <div className="tablewrap">
             <table>
               <thead><tr>{table.head.map((h, i) => <th key={i} className={i >= table.firstNum ? 'num' : ''}>{h}</th>)}</tr></thead>

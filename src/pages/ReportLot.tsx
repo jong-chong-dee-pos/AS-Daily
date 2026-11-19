@@ -9,6 +9,7 @@ import { FilterBar } from '../ui/FilterBar';
 import { usePeriod } from '../ui/usePeriod';
 import { fmtDate, fmtMonth, fmtNum } from '../ui/format';
 import { ExportButtons } from '../ui/ExportButtons';
+import { LotDailyChart, LotMonthChart, LotWeekChart, lotChartMonth, yearOf } from '../ui/ExcelCharts';
 import { periodName } from './ReportPer';
 
 interface Row { label: string; t: LotTotals; target: number; strong?: boolean }
@@ -43,6 +44,10 @@ export function buildLotRows(d: ReportData, p: Period): { rows: Row[]; prevYearT
 export function ReportLot() {
   const [period, setPeriod] = usePeriod();
   const { data, error } = useReportData(period);
+  const year = yearOf(period);
+  const yearData = useReportData({ kind: 'year', year });
+  const yd = yearData.data;
+  const chartMonth = yd ? lotChartMonth(period, yd.lot) : null;
   const built = useMemo(() => (data ? buildLotRows(data, period) : null), [data, period]);
   const head = ['ช่วง', 'Lot ส่งตรวจ', 'Lot out Patrol', 'Lot out FG', 'Lot out รวม', 'Lot out %', 'เป้า ≤%'];
   const exportRows = built ? [[`Lot out ${periodName(period)}`], head,
@@ -57,6 +62,13 @@ export function ReportLot() {
       {!data && !error && <p className="empty">กำลังโหลด…</p>}
       {built && (
         <div id="report-lot">
+          {yd && (
+            <div className="charts">
+              <LotMonthChart d={yd} year={year} />
+              {chartMonth && <LotWeekChart lot={yd.lot} month={chartMonth} targets={yd.targets} label={fmtMonth(chartMonth)} />}
+              {chartMonth && <div className="wide"><LotDailyChart lot={yd.lot} month={chartMonth} targets={yd.targets} label={fmtMonth(chartMonth)} /></div>}
+            </div>
+          )}
           <div className="tablewrap">
             <table>
               <thead><tr>{head.map((h, i) => <th key={h} className={i ? 'num' : ''}>{h}</th>)}</tr></thead>
