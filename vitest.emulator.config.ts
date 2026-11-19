@@ -1,0 +1,5 @@
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: { include: ['tests/rules/**/*.test.ts', 'tests/data/**/*.test.ts'], environment: 'node', fileParallelism: false },
+});

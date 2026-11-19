@@ -8,15 +8,19 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:rules": "firebase emulators:exec --only firestore,auth --project demo-as-daily 'vitest run --config vitest.emulator.config.ts'",
+    "emulators": "firebase emulators:start --only firestore,auth --project demo-as-daily"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
+    "firebase": "^10.14.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
+    "@firebase/rules-unit-testing": "^3.0.4",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@types/react": "^18.3.12",
@@ -25,6 +29,7 @@
     "eslint": "^9.13.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",
+    "firebase-tools": "^13.29.1",
     "globals": "^15.11.0",
     "jsdom": "^25.0.1",
     "typescript": "~5.6.2",

@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function role() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function hasRole() { return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function isAdmin() { return hasRole() && role() == 'admin'; }
+    function isEditor() { return hasRole() && role() in ['admin', 'editor']; }
+    function stamped() { return request.resource.data.updatedBy == request.auth.uid; }
+
+    // Any user with a role may read everything, including costs.
+    match /{collection}/{id} {
+      allow read: if hasRole();
+    }
+
+    // Daily and monthly data: editors and admins, stamped with their own uid.
+    match /perDaily/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
+    match /lotDaily/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
+    match /costMonthly/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
+
+    // Settings and accounts: admins only.
+    match /lines/{id} { allow write: if isAdmin(); }
+    match /workers/{id} { allow write: if isAdmin(); }
+    match /targets/{id} { allow write: if isAdmin(); }
+    match /monthlySummary/{id} { allow write: if isAdmin(); }
+    match /users/{uid} { allow write: if isAdmin(); }
+  }
+}
