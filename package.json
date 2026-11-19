@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:rules": "firebase emulators:exec --only firestore,auth --project demo-as-daily 'vitest run --config vitest.emulator.config.ts'",
-    "emulators": "firebase emulators:start --only firestore,auth --project demo-as-daily"
+    "emulators": "firebase emulators:start --only firestore,auth --project demo-as-daily",
+    "import:parse": "python3 scripts/parse_xlsx.py",
+    "import:load": "node scripts/load-firestore.mjs"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
@@ -36,6 +38,7 @@
     "eslint": "^9.13.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",
+    "firebase-admin": "^12.7.0",
     "firebase-tools": "^13.29.1",
     "globals": "^15.11.0",
     "jsdom": "^25.0.1",

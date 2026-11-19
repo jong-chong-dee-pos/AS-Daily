@@ -25,3 +25,9 @@ dist-ssr
 
 .env.local
 *.log
+
+# import data and credentials
+*.xlsx
+import.json
+service-account*.json
+__pycache__
