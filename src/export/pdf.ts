@@ -1,3 +1,5 @@
+import { saveFile } from './save';
+
 /** Renders an element to an A4-landscape PDF via a canvas snapshot, so Thai text keeps its font. */
 export async function exportPdf(el: HTMLElement, filename: string, title: string) {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
@@ -25,5 +27,5 @@ export async function exportPdf(el: HTMLElement, filename: string, title: string
     pdf.addImage(img, 'PNG', margin, margin - offset, w, h);
     offset += pageH - margin * 2;
   }
-  pdf.save(filename);
+  await saveFile(pdf.output('blob'), filename);
 }

@@ -12,7 +12,8 @@
     "test:rules": "firebase emulators:exec --only firestore,auth --project demo-as-daily 'vitest run --config vitest.emulator.config.ts'",
     "emulators": "firebase emulators:start --only firestore,auth --project demo-as-daily",
     "import:parse": "python3 scripts/parse_xlsx.py",
-    "import:load": "node scripts/load-firestore.mjs"
+    "import:load": "node scripts/load-firestore.mjs",
+    "build:artifact": "tsc -b && vite build --config vite.artifact.config.ts && node scripts/inline-html.mjs"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

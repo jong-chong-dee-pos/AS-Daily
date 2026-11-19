@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { atLeast, useAuth } from '../auth/AuthProvider';
+import { atLeast, useAuth } from '../auth/context';
 import type { Role } from '../types';
 
 const NAV: { to: string; label: string; min: Role; keepPeriod?: boolean }[] = [
@@ -28,7 +28,7 @@ export function Layout() {
         {user && (
           <div className="who">
             <span>{user.name} · {ROLE_TH[user.role]}</span>
-            <button type="button" className="link" onClick={signOut}>ออกจากระบบ</button>
+            {signOut && <button type="button" className="link" onClick={signOut}>ออกจากระบบ</button>}
           </div>
         )}
       </header>

@@ -1,3 +1,4 @@
+import { saveFile } from './save';
 import ExcelJS from 'exceljs';
 
 export interface SheetSpec { name: string; rows: (string | number | null)[][] }
@@ -16,13 +17,9 @@ export async function buildWorkbook(sheets: SheetSpec[]): Promise<ArrayBuffer> {
 }
 
 export function download(data: BlobPart, filename: string, type: string) {
-  const url = URL.createObjectURL(new Blob([data], { type }));
-  const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return saveFile(new Blob([data], { type }), filename);
 }
 
 export async function exportExcel(sheets: SheetSpec[], filename: string) {
-  download(await buildWorkbook(sheets), filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  await download(await buildWorkbook(sheets), filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 }

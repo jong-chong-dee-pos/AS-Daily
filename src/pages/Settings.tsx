@@ -8,14 +8,14 @@ import { parseNum } from './EntryDaily';
 
 const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}`;
 
-export function Settings() {
+export function Settings({ manageUsers = true }: { manageUsers?: boolean }) {
   return (
     <section>
       <div className="page-head"><h1>ตั้งค่า</h1><span className="muted">สำหรับผู้ดูแลระบบ</span></div>
       <LinesSection />
       <WorkersSection />
       <TargetsSection />
-      <UsersSection />
+      {manageUsers && <UsersSection />}
     </section>
   );
 }
