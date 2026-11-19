@@ -56,7 +56,7 @@ export function ReportPer() {
                   if (r.group && tab === 'line') {
                     return (
                       <tr key={i} className="group">
-                        <td className="sticky-col" colSpan={table.colStart - 1}>Setter: {r.cells[0].text} <span className="hint">(เฉลี่ย Setter)</span></td>
+                        <td className="sticky-col" colSpan={table.colStart - 1}>Setter: {r.cells[0].text || 'ยังไม่ได้กำหนด'} <span className="hint">(เฉลี่ย Setter)</span></td>
                         {r.cells.slice(table.colStart).map((c, j) => <td key={j} className="num">{c.text}</td>)}
                       </tr>
                     );

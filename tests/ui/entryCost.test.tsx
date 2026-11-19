@@ -32,4 +32,12 @@ describe('EntryCost', () => {
       actual: { electric: null, laborOT: null, laborSub: null, consumed: null },
     }));
   });
+  it('saves a note next to the category', async () => {
+    const repo = fakeRepo({ cost: [oct] });
+    render(<RepoContext.Provider value={repo}><EntryCost initialMonth="2026-10" /></RepoContext.Provider>);
+    await waitFor(() => expect(screen.getByLabelText('Electric Standard')).toHaveValue('26548.43'));
+    fireEvent.change(screen.getByLabelText('หมายเหตุ Electric'), { target: { value: 'แอร์เสีย' } });
+    fireEvent.click(screen.getByRole('button', { name: 'บันทึก' }));
+    await waitFor(() => expect(repo.saveCostMonth).toHaveBeenCalledWith(expect.objectContaining({ note: { electric: 'แอร์เสีย' } })));
+  });
 });

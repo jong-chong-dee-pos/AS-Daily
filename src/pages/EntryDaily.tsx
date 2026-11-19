@@ -183,7 +183,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
               <thead><tr><th>ไลน์</th><th>พนักงาน 1</th><th>พนักงาน 2</th><th className="num">% PER</th></tr></thead>
               <tbody>
                 {setters.map((s) => [
-                  <tr key={`g-${s}`} className="group"><td colSpan={4}>Setter: {s}</td></tr>,
+                  <tr key={`g-${s}`} className="group"><td colSpan={4}>Setter: {s || 'ยังไม่ได้กำหนด'}</td></tr>,
                   ...lines.filter((l) => l.setter === s).map((l) => (
                     <tr key={l.id}>
                       <td><b>{l.code}</b></td>

@@ -176,13 +176,13 @@ const avg = (pts: Point[], k: string, digits: number, unit: string) => {
 export const PerMonthChart = ({ d, year, height }: { d: ReportData; year: number; height?: number }) => (
   <ExcelChart title={`% PER รายเดือน ${year}`} data={perMonthSeries(d, year)} unit="%" height={height} soft={{ color: C.perSoft, from: 12 }}
     bars={[{ key: 'per', name: '% PER', color: C.per, digits: 0 }]}
-    line={{ key: 'target', name: 'เป้า', color: C.target, digits: 0 }} />
+    line={{ key: 'target', name: d.labels?.per ?? 'เป้า', color: C.target, digits: 0 }} />
 );
 
 export const LotMonthChart = ({ d, year, height }: { d: ReportData; year: number; height?: number }) => (
   <ExcelChart title={`Lot out % รายเดือน ${year}`} data={lotMonthSeries(d, year)} unit="%" height={height} soft={{ color: C.lotSoft, from: 12 }}
     bars={[{ key: 'pct', name: 'Lot out %', color: C.lot, digits: 2 }]}
-    line={{ key: 'target', name: 'เป้า ≤', color: C.targetLow, digits: 2 }} />
+    line={{ key: 'target', name: `${d.labels?.lot ?? 'เป้า'} ≤`, color: C.targetLow, digits: 2 }} />
 );
 
 export const LotDailyChart = ({ lot, month, targets, label }: { lot: LotEntry[]; month: string; targets: Target[]; label: string }) => {

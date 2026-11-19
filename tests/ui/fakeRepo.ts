@@ -1,10 +1,11 @@
 import { vi } from 'vitest';
 import type { Repo } from '../../src/data/repo';
-import type { AbsenceDay, CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Target, Worker } from '../../src/types';
+import type { AbsenceDay, CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Setter, Target, TargetLabels, Worker } from '../../src/types';
 
 export interface FakeData {
   lines?: Line[]; workers?: Worker[]; per?: PerEntry[]; lot?: LotEntry[];
   cost?: CostMonth[]; targets?: Target[]; summaries?: MonthlySummary[]; absences?: AbsenceDay[];
+  setters?: Setter[]; labels?: TargetLabels;
 }
 
 export const L = (id: string, setter: string, extra: Partial<Line> = {}): Line => ({
@@ -20,6 +21,11 @@ export function fakeRepo(d: FakeData = {}) {
     listWorkers: vi.fn(async () => d.workers ?? []),
     listTargets: vi.fn(async () => d.targets ?? []),
     listUsers: vi.fn(async () => []),
+    listSetters: vi.fn(async () => d.setters ?? []),
+    saveSetter: vi.fn(async () => {}),
+    deleteSetter: vi.fn(async () => {}),
+    getTargetLabels: vi.fn(async () => d.labels ?? null),
+    saveTargetLabels: vi.fn(async () => {}),
     getPerEntries: vi.fn(async (f: string, t: string) => inRange(d.per, 'date', f, t)),
     savePerDay: vi.fn(async () => {}),
     getLotEntries: vi.fn(async (f: string, t: string) => inRange(d.lot, 'date', f, t)),

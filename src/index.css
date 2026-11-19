@@ -173,6 +173,12 @@ td input.wide, td select.wide, td textarea.wide { width: 100%; text-align: left;
 td input.mid { width: 120px; text-align: left; }
 td select { max-width: 170px; }
 td input.invalid, input.invalid { border-color: var(--bad); background: var(--bad-soft); }
+td.note-cell { color: var(--ink-2); min-width: 200px; white-space: normal; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; max-width: 640px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 5px; border-radius: 999px; border: 1px solid var(--hair-strong); background: var(--surface); font-size: .78rem; cursor: pointer; white-space: nowrap; }
+.chip input { width: 13px; height: 13px; }
+.chip.on { background: var(--accent-soft); border-color: #c3bbf8; color: #4a3cc4; font-weight: 600; }
+.chip.taken { color: var(--ink-3); border-style: dashed; }
 td.actions-cell { white-space: nowrap; text-align: right; width: 1%; }
 td.check, th.check { width: 28px; text-align: center; padding-left: 6px; padding-right: 4px; }
 tr.row-new td { background: #f2fbf5; }

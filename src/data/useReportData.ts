@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useRepo } from './RepoContext';
 import { bounds } from '../calc/period';
+import { DEFAULT_TARGET_LABELS, type TargetLabels } from '../types';
 import type { CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Period, Target, Worker } from '../types';
 
 export interface ReportData {
   lines: Line[]; workers: Worker[]; per: PerEntry[]; lot: LotEntry[]; cost: CostMonth[];
   targets: Target[]; summaries: MonthlySummary[];
+  /** Admin-chosen names for the two targets. */
+  labels?: TargetLabels;
   /** Same data for the previous calendar year (for comparisons on year views). */
   prevYear: { lot: LotEntry[]; summaries: MonthlySummary[]; yearSummary: MonthlySummary | null };
   /** Yearly summary two years back (Excel shows AVG for the last three years). */
@@ -29,8 +32,9 @@ export function useReportData(p: Period): { data: ReportData | null; error: stri
       repo.getMonthlySummaries(from.slice(0, 7), to.slice(0, 7)),
       repo.getLotEntries(`${py}-01-01`, `${py}-12-31`), repo.getMonthlySummaries(`${py}-01`, `${py}-12`),
       repo.getMonthlySummaries(py, py), repo.getMonthlySummaries(py2, py2),
-    ]).then(([lines, workers, per, lot, cost, targets, summaries, pLot, pSum, pYear, p2Year]) => {
-      if (live) setData({ lines, workers, per, lot, cost, targets, summaries,
+      repo.getTargetLabels().catch(() => null),
+    ]).then(([lines, workers, per, lot, cost, targets, summaries, pLot, pSum, pYear, p2Year, labels]) => {
+      if (live) setData({ lines, workers, per, lot, cost, targets, summaries, labels: { ...DEFAULT_TARGET_LABELS, ...(labels ?? {}) },
         prevYear: { lot: pLot, summaries: pSum, yearSummary: pYear[0] ?? null }, prev2Year: p2Year[0] ?? null });
     }).catch(() => live && setError('โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชหน้า'));
     return () => { live = false; };

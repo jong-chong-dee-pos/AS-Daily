@@ -6,8 +6,8 @@ import { fmtBaht, fmtMonth, THAI_MONTHS, todayIso } from '../ui/format';
 import { COST_LABEL } from '../ui/labels';
 import { parseNum } from './EntryDaily';
 
-type Vals = Record<CostCategory, { standard: string; actual: string }>;
-const blank = (): Vals => Object.fromEntries(COST_CATEGORIES.map((c) => [c, { standard: '', actual: '' }])) as Vals;
+type Vals = Record<CostCategory, { standard: string; actual: string; note: string }>;
+const blank = (): Vals => Object.fromEntries(COST_CATEGORIES.map((c) => [c, { standard: '', actual: '', note: '' }])) as Vals;
 
 export function EntryCost({ initialMonth }: { initialMonth?: string }) {
   const repo = useRepo();
@@ -35,7 +35,7 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
       if (!live) return;
       const v = blank();
       if (c) for (const k of COST_CATEGORIES) {
-        v[k] = { standard: c.standard[k] == null ? '' : String(c.standard[k]), actual: c.actual[k] == null ? '' : String(c.actual[k]) };
+        v[k] = { standard: c.standard[k] == null ? '' : String(c.standard[k]), actual: c.actual[k] == null ? '' : String(c.actual[k]), note: c.note?.[k] ?? '' };
       }
       setVals(v); setBusy(false); setDirty(false);
     });
@@ -43,14 +43,15 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
   }, [month, repo]);
 
   const invalid = COST_CATEGORIES.some((k) => Number.isNaN(parseNum(vals[k].standard)) || Number.isNaN(parseNum(vals[k].actual)));
-  const set = (k: CostCategory, f: 'standard' | 'actual', v: string) => { setVals((s) => ({ ...s, [k]: { ...s[k], [f]: v } })); setDirty(true); setStatus(''); };
+  const set = (k: CostCategory, f: 'standard' | 'actual' | 'note', v: string) => { setVals((s) => ({ ...s, [k]: { ...s[k], [f]: v } })); setDirty(true); setStatus(''); };
 
   const save = async () => {
     setBusy(true); setStatus('กำลังบันทึก…');
     try {
       const pick = (f: 'standard' | 'actual') =>
         Object.fromEntries(COST_CATEGORIES.map((k) => [k, parseNum(vals[k][f])])) as Record<CostCategory, number | null>;
-      await repo.saveCostMonth({ month, standard: pick('standard'), actual: pick('actual') });
+      const notes = Object.fromEntries(COST_CATEGORIES.map((k) => [k, vals[k].note.trim()]).filter(([, n]) => n));
+      await repo.saveCostMonth({ month, standard: pick('standard'), actual: pick('actual'), ...(Object.keys(notes).length ? { note: notes } : {}) });
       setStatus(`บันทึกต้นทุนเดือน ${fmtMonth(month)} แล้ว`); setDirty(false);
       if (pending) { setMonth(pending); setPending(null); }
     } catch { setStatus('บันทึกไม่สำเร็จ ลองอีกครั้ง'); }
@@ -80,9 +81,9 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
           <button type="button" className="secondary sm" onClick={() => setPending(null)}>อยู่หน้านี้ต่อ</button>
         </div>
       )}
-      <div className="tablewrap" style={{ maxWidth: 760 }}>
+      <div className="tablewrap" style={{ maxWidth: 1100 }}>
         <table>
-          <thead><tr><th>หมวด</th><th className="num">Standard (บาท)</th><th className="num">Actual (บาท)</th><th className="num">Variance</th></tr></thead>
+          <thead><tr><th>หมวด</th><th className="num">Standard (บาท)</th><th className="num">Actual (บาท)</th><th className="num">Variance</th><th>หมายเหตุ</th></tr></thead>
           <tbody>
             {COST_CATEGORIES.map((k) => {
               const s = parseNum(vals[k].standard), a = parseNum(vals[k].actual);
@@ -99,6 +100,8 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
                     </td>
                   ))}
                   <td className={`num ${v !== null && v < 0 ? 'neg' : ''}`} data-testid={`var-${k}`}>{fmtBaht(v)}</td>
+                  <td><input aria-label={`หมายเหตุ ${COST_LABEL[k]}`} className="wide" style={{ minWidth: 240 }} placeholder="เช่น สาเหตุที่ใช้เกินมาตรฐาน"
+                    value={vals[k].note} onChange={(e) => set(k, 'note', e.target.value)} /></td>
                 </tr>
               );
             })}

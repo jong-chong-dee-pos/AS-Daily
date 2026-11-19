@@ -76,14 +76,14 @@ export function Dashboard() {
               <div className="card-head"><span className="card-icon"><Icon name="per" /></span><span className="label">% PER เฉลี่ย</span></div>
               <div className="value" data-testid="kpi-per">{fmtNum(s.per)}%</div>
               {yd && <Spark values={perMonthSeries(yd, year).slice(0, 12).map((p) => p.per)} />}
-              <div className="target">เป้า ≥ {fmtNum(s.perTarget, 0)}% {perOk !== null && <span className={`pill ${perOk ? 'ok' : 'no'}`}>{perOk ? 'ถึงเป้า' : 'ไม่ถึงเป้า'}</span>}</div>
+              <div className="target">{data?.labels?.per ?? 'เป้า'} ≥ {fmtNum(s.perTarget, 0)}% {perOk !== null && <span className={`pill ${perOk ? 'ok' : 'no'}`}>{perOk ? 'ถึงเป้า' : 'ไม่ถึงเป้า'}</span>}</div>
               <Meter value={s.per} target={s.perTarget} max={Math.max(s.perTarget * 1.4, s.per ?? 0)} ok={perOk} />
             </div>
             <div className="card c-lot">
               <div className="card-head"><span className="card-icon"><Icon name="lot" /></span><span className="label">Lot out</span></div>
               <div className="value" data-testid="kpi-lot">{fmtNum(s.lot.pct, 2)}%</div>
               {yd && <Spark values={lotMonthSeries(yd, year).slice(0, 12).map((p) => p.pct)} />}
-              <div className="target">เป้า ≤ {fmtNum(s.lotTarget, 2)}% {lotOk !== null && <span className={`pill ${lotOk ? 'ok' : 'no'}`}>{lotOk ? 'ถึงเป้า' : 'ไม่ถึงเป้า'}</span>} <span>{s.lot.out} จาก {fmtNum(s.lot.sent, 0)} Lot</span></div>
+              <div className="target">{data?.labels?.lot ?? 'เป้า'} ≤ {fmtNum(s.lotTarget, 2)}% {lotOk !== null && <span className={`pill ${lotOk ? 'ok' : 'no'}`}>{lotOk ? 'ถึงเป้า' : 'ไม่ถึงเป้า'}</span>} <span>{s.lot.out} จาก {fmtNum(s.lot.sent, 0)} Lot</span></div>
               <Meter value={s.lot.pct} target={s.lotTarget} max={Math.max(s.lotTarget * 3, s.lot.pct ?? 0)} ok={lotOk} />
             </div>
             {s.cost.map((c) => (

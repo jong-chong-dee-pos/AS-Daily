@@ -1,9 +1,9 @@
 import {
-  collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, where, writeBatch,
+  collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where, writeBatch,
   type Firestore,
 } from 'firebase/firestore';
 import type {
-  Absence, AbsenceDay, AppUser, CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Role, Target, Worker,
+  Absence, AbsenceDay, AppUser, CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Role, Setter, Target, TargetLabels, Worker,
 } from '../types';
 
 /** Data access for one signed-in user. `uid` is stamped on every write as updatedBy. */
@@ -23,6 +23,11 @@ export function makeRepo(db: Firestore, uid: () => string) {
     listLines: async () => (await all<Line>('lines')).sort((a, b) => a.order - b.order),
     listWorkers: () => all<Worker>('workers'),
     listTargets: () => all<Target>('targets'),
+    listSetters: async () => (await all<Setter>('setters')).sort((a, b) => a.order - b.order),
+    saveSetter: (s: Setter) => setDoc(doc(db, 'setters', s.id), { ...strip(s), ...stamp() }),
+    deleteSetter: (id: string) => deleteDoc(doc(db, 'setters', id)),
+    getTargetLabels: async () => ((await getDoc(doc(db, 'settings', 'targetLabels'))).data() ?? null) as TargetLabels | null,
+    saveTargetLabels: (l: TargetLabels) => setDoc(doc(db, 'settings', 'targetLabels'), { ...l, ...stamp() }),
     listUsers: async () => (await all<AppUser & { id: string }>('users')).map(({ id, ...u }) => ({ ...u, uid: id })),
 
     getPerEntries: (from: string, to: string) => between<PerEntry>('perDaily', 'date', from, to),

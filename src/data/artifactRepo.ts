@@ -1,5 +1,5 @@
 import type { Repo } from './repo';
-import type { Absence, AbsenceDay, CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Target, Worker } from '../types';
+import type { Absence, AbsenceDay, CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Setter, Target, TargetLabels, Worker } from '../types';
 
 /** The subset of the Claude artifact `db` capability this app uses. */
 export interface ArtifactDocSnap { id: string; exists: boolean; data(): Record<string, unknown> | undefined }
@@ -48,6 +48,11 @@ export function makeArtifactRepo(db: ArtifactDb, uploadImage?: (f: Blob) => Prom
     listLines: async () => (await all<Line>('lines')).sort((a, b) => a.order - b.order),
     listWorkers: () => all<Worker>('workers'),
     listTargets: () => all<Target>('targets'),
+    listSetters: async () => (await all<Setter>('setters')).sort((a, b) => a.order - b.order),
+    saveSetter: (s: Setter) => db.doc(`setters/${s.id}`).set({ ...strip(s), ...stamp() }),
+    deleteSetter: (id: string) => db.doc(`setters/${id}`).delete(),
+    getTargetLabels: async () => { const d = (await db.doc('settings/targetLabels').get()).data(); return d ? ({ per: String(d.per ?? ''), lot: String(d.lot ?? '') }) as TargetLabels : null; },
+    saveTargetLabels: (l: TargetLabels) => db.doc('settings/targetLabels').set({ ...l, ...stamp() }),
     listUsers: async () => [],
 
     async getPerEntries(from: string, to: string): Promise<PerEntry[]> {

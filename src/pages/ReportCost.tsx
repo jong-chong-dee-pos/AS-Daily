@@ -10,13 +10,13 @@ import { ExportButtons } from '../ui/ExportButtons';
 import { CostChart, yearOf } from '../ui/ExcelCharts';
 import { periodName } from './ReportPer';
 
-export interface CostRow { month: string; cat: CostCategory; standard: number | null; actual: number | null; variance: number | null }
+export interface CostRow { month: string; cat: CostCategory; standard: number | null; actual: number | null; variance: number | null; note: string }
 
 export function buildCostRows(d: ReportData, p: Period): CostRow[] {
   return COST_CATEGORIES.flatMap((cat) => monthsIn(p).map((m) => {
     const c = d.cost.find((x) => x.month === m);
     const s = c?.standard[cat] ?? null, a = c?.actual[cat] ?? null;
-    return { month: m, cat, standard: s, actual: a, variance: variance(s, a) };
+    return { month: m, cat, standard: s, actual: a, variance: variance(s, a), note: c?.note?.[cat] ?? '' };
   }));
 }
 
@@ -34,9 +34,9 @@ export function ReportCost() {
   const year = yearOf(period);
   const yd = useReportData({ kind: 'year', year }).data;
   const months = monthsIn(period);
-  const head = ['หมวด', 'เดือน', 'Standard', 'Actual', 'Variance'];
+  const head = ['หมวด', 'เดือน', 'Standard', 'Actual', 'Variance', 'หมายเหตุ'];
   const exportRows = [[`ต้นทุน ${periodName(period)}`], head,
-    ...rows.map((r) => [COST_LABEL[r.cat], r.month, r.standard, r.actual, r.variance])];
+    ...rows.map((r) => [COST_LABEL[r.cat], r.month, r.standard, r.actual, r.variance, r.note])];
   return (
     <section>
       <div className="page-head"><h1>ต้นทุน</h1><span className="muted">Variance = Standard − Actual · ติดลบ = ใช้เกินมาตรฐาน</span></div>
@@ -55,19 +55,20 @@ export function ReportCost() {
                 {yd && <div className="charts single"><CostChart d={yd} year={year} cat={cat} label={`Process (${COST_LABEL[cat]})`} /></div>}
                 <div className="tablewrap">
                   <table>
-                    <thead><tr><th>เดือน</th><th className="num">Standard (บาท)</th><th className="num">Actual (บาท)</th><th className="num">Variance</th></tr></thead>
+                    <thead><tr><th>เดือน</th><th className="num">Standard (บาท)</th><th className="num">Actual (บาท)</th><th className="num">Variance</th><th>หมายเหตุ</th></tr></thead>
                     <tbody>
                       {rows.filter((r) => r.cat === cat).map((r) => (
                         <tr key={r.month}>
                           <td>{fmtMonth(r.month)}</td>
                           <td className="num">{fmtBaht(r.standard)}</td><td className="num">{fmtBaht(r.actual)}</td>
                           <td className={`num ${r.variance !== null && r.variance < 0 ? 'neg' : ''}`}>{fmtBaht(r.variance)}</td>
+                          <td className="note-cell">{r.note}</td>
                         </tr>
                       ))}
                     </tbody>
                     {months.length > 1 && (
                       <tfoot><tr><td>รวม</td><td className="num">{fmtBaht(tot.standard)}</td><td className="num">{fmtBaht(tot.actual)}</td>
-                        <td className={`num ${tot.variance !== null && tot.variance < 0 ? 'neg' : ''}`}>{fmtBaht(tot.variance)}</td></tr></tfoot>
+                        <td className={`num ${tot.variance !== null && tot.variance < 0 ? 'neg' : ''}`}>{fmtBaht(tot.variance)}</td><td /></tr></tfoot>
                     )}
                   </table>
                 </div>

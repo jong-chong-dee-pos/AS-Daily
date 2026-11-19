@@ -17,6 +17,17 @@ export interface Line {
   active: boolean;
 }
 
+/** A setter and the order they appear in; lines point to a setter by name (Line.setter). */
+export interface Setter {
+  id: string;
+  name: string;
+  order: number;
+}
+
+/** Display names for the two monthly targets; admins can rename them. */
+export interface TargetLabels { per: string; lot: string }
+export const DEFAULT_TARGET_LABELS: TargetLabels = { per: 'เป้า % PER', lot: 'เป้า Lot out' };
+
 export interface Worker {
   id: string;
   name: string;
@@ -68,6 +79,8 @@ export interface CostMonth {
   month: string;
   standard: Record<CostCategory, number | null>;
   actual: Record<CostCategory, number | null>;
+  /** Free-text remark per category, shown next to Variance in reports. */
+  note?: Partial<Record<CostCategory, string>>;
 }
 
 export interface Target {
