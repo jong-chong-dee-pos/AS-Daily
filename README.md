@@ -3,6 +3,14 @@
 เว็บแอปแทนไฟล์ Daily.xlsx สำหรับบันทึกและดูรายงาน % PER, Lot out และต้นทุน (Standard / Actual) รายเดือน
 ใช้ React + Vite และ Firebase (Authentication, Firestore, Hosting)
 
+## เปิดใช้งานบน Claude (บัญชีเดียว)
+
+ตอนนี้ใช้งานที่ https://claude.ai/artifact/Sv23oGXacRjLWzYK1RwGJV
+เข้าด้วยบัญชี claude.ai ของเจ้าของ ไม่ต้อง Login แยก ข้อมูลเก็บในฐานข้อมูลของหน้านั้น
+
+อัปเดตหน้า: `npm run build:artifact` แล้ว publish `dist-artifact/index.html` ไปที่ลิงก์เดิม
+ข้อมูลตั้งต้นสร้างด้วย `node scripts/to-artifact-docs.mjs import.json` (ไลน์, พนักงาน, perMonth/YYYY-MM, lotMonth/YYYY-MM, ต้นทุน, เป้า, สรุป)
+
 ## หน้าในระบบ
 
 | หน้า | ใครใช้ได้ | ใช้ทำอะไร |
