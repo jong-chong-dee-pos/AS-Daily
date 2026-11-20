@@ -1,9 +1,9 @@
 import {
-  collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, where, writeBatch,
+  collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where, writeBatch,
   type Firestore,
 } from 'firebase/firestore';
 import type {
-  AppUser, CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Role, Target, Worker,
+  Absence, AbsenceDay, AppUser, CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Role, Setter, Target, TargetLabels, Worker,
 } from '../types';
 
 /** Data access for one signed-in user. `uid` is stamped on every write as updatedBy. */
@@ -23,6 +23,11 @@ export function makeRepo(db: Firestore, uid: () => string) {
     listLines: async () => (await all<Line>('lines')).sort((a, b) => a.order - b.order),
     listWorkers: () => all<Worker>('workers'),
     listTargets: () => all<Target>('targets'),
+    listSetters: async () => (await all<Setter>('setters')).sort((a, b) => a.order - b.order),
+    saveSetter: (s: Setter) => setDoc(doc(db, 'setters', s.id), { ...strip(s), ...stamp() }),
+    deleteSetter: (id: string) => deleteDoc(doc(db, 'setters', id)),
+    getTargetLabels: async () => ((await getDoc(doc(db, 'settings', 'targetLabels'))).data() ?? null) as TargetLabels | null,
+    saveTargetLabels: (l: TargetLabels) => setDoc(doc(db, 'settings', 'targetLabels'), { ...l, ...stamp() }),
     listUsers: async () => (await all<AppUser & { id: string }>('users')).map(({ id, ...u }) => ({ ...u, uid: id })),
 
     getPerEntries: (from: string, to: string) => between<PerEntry>('perDaily', 'date', from, to),
@@ -46,6 +51,18 @@ export function makeRepo(db: Firestore, uid: () => string) {
 
     getMonthlySummaries: (fromMonth: string, toMonth: string) =>
       between<MonthlySummary>('monthlySummary', 'month', fromMonth, toMonth),
+
+    getAbsences: async (from: string, to: string): Promise<AbsenceDay[]> =>
+      (await between<AbsenceDay>('absenceDaily', 'date', from, to)).map((a) => ({ date: a.date, list: a.list ?? [] })),
+    saveAbsenceDay: (date: string, list: Absence[]) =>
+      list.length ? setDoc(doc(db, 'absenceDaily', date), { date, list, ...stamp() }) : deleteDoc(doc(db, 'absenceDaily', date)),
+    saveSummary: (s: MonthlySummary) => setDoc(doc(db, 'monthlySummary', s.month), { ...s, ...stamp() }),
+    deleteSummary: (month: string) => deleteDoc(doc(db, 'monthlySummary', month)),
+    deleteLine: (id: string) => deleteDoc(doc(db, 'lines', id)),
+    deleteWorker: (id: string) => deleteDoc(doc(db, 'workers', id)),
+    deleteTarget: (month: string) => deleteDoc(doc(db, 'targets', month)),
+    /** Photo upload is only available where the host provides storage (the Claude artifact). */
+    uploadImage: undefined as undefined | ((f: Blob) => Promise<string>),
 
     saveLine: (l: Line) => setDoc(doc(db, 'lines', l.id), { ...strip(l), ...stamp() }),
     saveWorker: (w: Worker) => setDoc(doc(db, 'workers', w.id), { ...strip(w), ...stamp() }),
