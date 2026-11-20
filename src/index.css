@@ -214,6 +214,11 @@ section > .actions.savebar { position: sticky; bottom: 10px; z-index: 6; padding
 .thumbs a { display: block; width: 34px; height: 34px; border-radius: 6px; overflow: hidden; border: 1px solid var(--hair); }
 .thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .thumb { position: relative; }
+tr.item-top td { border-bottom: 0; padding-bottom: 2px; }
+tr.item-bottom td { padding-top: 2px; }
+.thumbs.big a { width: 64px; height: 64px; border-radius: 8px; }
+.chart.clickable .recharts-bar-rectangle { cursor: pointer; }
+.chart.clickable .recharts-surface { cursor: pointer; }
 .thumb button { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; min-height: 0; padding: 0; border-radius: 50%; font-size: 10px; line-height: 1; background: var(--bad); }
 .upload { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-size: .78rem; color: var(--accent); border: 1px dashed #b9b0f7; border-radius: 6px; padding: 2px 7px; min-height: 26px; }
 .upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }

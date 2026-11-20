@@ -101,7 +101,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
       await repo.savePerDay(date, lines.map((l) => ({
         date, lineId: l.id, workerIds: rows[l.id].workerIds.filter(Boolean), per: parseNum(rows[l.id].per),
       })));
-      const cleanItems = items.map((i) => ({ ...i, partNo: i.partNo.trim(), note: i.note.trim() }));
+      const cleanItems = items.map((i) => ({ ...i, partNo: i.partNo.trim(), product: (i.product ?? '').trim(), note: i.note.trim() }));
       if (lotBlank) await repo.deleteLotDay(date);
       else await repo.saveLotDay({ date, sent: sent ?? 0, patrol: patrol ?? 0, fg: fg ?? 0, items: cleanItems });
       await repo.saveAbsenceDay(date, absences.map(({ workerId, reason, note }) => ({ workerId, reason, note: note.trim() })));
@@ -222,22 +222,30 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
             {lotOverflow && <p className="error" role="alert">Lot out มากกว่า Lot ส่งตรวจ</p>}
 
             <div className="panel-head" style={{ marginTop: 12 }}>
-              <h3>รายละเอียด Lot out</h3><span className="hint">Part No. และรูปประกอบ</span><span className="spacer" />
+              <h3>รายละเอียด Lot out</h3><span className="hint">U-Line, Product, ปัญหา และรูปประกอบ</span><span className="spacer" />
               <button type="button" className="secondary sm" onClick={() => {
-                setItems((xs) => [...xs, { id: newKey(), partNo: '', kind: (patrol ?? 0) > (fg ?? 0) ? 'patrol' : 'fg', note: '', images: [] }]); touch();
+                setItems((xs) => [...xs, { id: newKey(), partNo: '', product: '', lineId: '', kind: (patrol ?? 0) > (fg ?? 0) ? 'patrol' : 'fg', note: '', images: [] }]); touch();
               }}>+ เพิ่ม Part No.</button>
             </div>
             <div className="tablewrap" style={{ boxShadow: 'none' }}>
               <table>
-                <thead><tr><th>Part No.</th><th>ประเภท</th><th>หมายเหตุ / อาการ</th><th>รูป</th><th /></tr></thead>
+                <thead><tr><th>U-Line</th><th>Part No.</th><th>ชื่อ Product</th><th>ประเภท</th><th /></tr></thead>
                 <tbody>
-                  {items.map((it) => (
-                    <tr key={it.id}>
-                      <td><input aria-label="Part No." className="mid" value={it.partNo} onChange={(e) => setItem(it.id, { partNo: e.target.value })} /></td>
+                  {items.map((it) => [
+                    <tr key={it.id} className="item-top">
+                      <td><select aria-label="U-Line ที่ Lot out" value={it.lineId ?? ''} onChange={(e) => setItem(it.id, { lineId: e.target.value })} style={{ maxWidth: 88 }}>
+                        <option value="">—</option>
+                        {lines.map((l) => <option key={l.id} value={l.id}>{l.code}</option>)}
+                      </select></td>
+                      <td><input aria-label="Part No." style={{ width: 86, textAlign: 'left' }} value={it.partNo} onChange={(e) => setItem(it.id, { partNo: e.target.value })} /></td>
+                      <td><input aria-label="ชื่อ Product" style={{ width: 104, textAlign: 'left' }} value={it.product ?? ''} onChange={(e) => setItem(it.id, { product: e.target.value })} /></td>
                       <td><select aria-label="ประเภท Lot out" value={it.kind} onChange={(e) => setItem(it.id, { kind: e.target.value as LotKind })}>
                         <option value="patrol">Patrol</option><option value="fg">FG</option></select></td>
-                      <td><input aria-label="หมายเหตุ Lot out" className="wide" value={it.note} onChange={(e) => setItem(it.id, { note: e.target.value })} /></td>
-                      <td>
+                      <td className="actions-cell"><button type="button" className="danger sm" onClick={() => { setItems((xs) => xs.filter((x) => x.id !== it.id)); touch(); }}>ลบ</button></td>
+                    </tr>,
+                    <tr key={`${it.id}-d`} className="item-bottom">
+                      <td colSpan={3}><input aria-label="รายละเอียดปัญหา" className="wide" placeholder="รายละเอียดปัญหา" value={it.note} onChange={(e) => setItem(it.id, { note: e.target.value })} /></td>
+                      <td colSpan={2}>
                         <div className="thumbs">
                           {it.images.map((u) => (
                             <span key={u} className="thumb">
@@ -251,9 +259,8 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
                             : <span className="hint">แนบรูปได้บน claude.ai</span>}
                         </div>
                       </td>
-                      <td className="actions-cell"><button type="button" className="danger sm" onClick={() => { setItems((xs) => xs.filter((x) => x.id !== it.id)); touch(); }}>ลบ</button></td>
-                    </tr>
-                  ))}
+                    </tr>,
+                  ])}
                   {items.length === 0 && <tr><td colSpan={5} className="hint">ไม่มี Lot out ที่ต้องบันทึก Part No.</td></tr>}
                 </tbody>
               </table>

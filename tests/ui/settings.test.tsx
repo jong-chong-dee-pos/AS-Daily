@@ -62,7 +62,7 @@ describe('Settings setters, workers, summaries', () => {
     await waitFor(() => screen.getByLabelText('เดือน 2026-01'));
     fireEvent.change(screen.getByLabelText('เดือน 2026-01'), { target: { value: '03' } });
     fireEvent.click(screen.getByRole('button', { name: /^บันทึก/ }));
-    await waitFor(() => expect(repo.saveSummary).toHaveBeenCalledWith({ month: '2026-03', per: 120, lotSent: 10, lotOut: 1 }));
+    await waitFor(() => expect(repo.saveSummary).toHaveBeenCalledWith({ month: '2026-03', per: 120, lotSent: 10, lotOut: 1, lotFg: null }));
     expect(repo.deleteSummary).toHaveBeenCalledWith('2026-01');
   });
 });

@@ -55,6 +55,10 @@ export type LotKind = 'patrol' | 'fg';
 export interface LotItem {
   id: string;
   partNo: string;
+  /** Product name, shown with the Part No. */
+  product?: string;
+  /** U-Line that made the job. */
+  lineId?: string;
   kind: LotKind;
   note: string;
   /** Image URLs (uploaded photos). */
@@ -95,6 +99,8 @@ export interface MonthlySummary {
   per: number | null;
   lotSent: number | null;
   lotOut: number | null;
+  /** Lot out FG count, entered by hand for months imported without a Patrol/FG split. */
+  lotFg?: number | null;
 }
 
 export type Period =

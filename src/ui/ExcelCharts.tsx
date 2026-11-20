@@ -2,7 +2,7 @@ import { Bar, CartesianGrid, Cell, ComposedChart, LabelList, Line, ReferenceLine
 import type { ReportData } from '../data/useReportData';
 import { daysInMonth, monthsIn } from '../calc/period';
 import { mean } from '../calc/per';
-import { monthlyLot, monthlyPer, sumLot } from '../calc/monthly';
+import { monthlyLot, monthlyPer, monthlySentFg, sumLot } from '../calc/monthly';
 import { lotByWeek, lotTotals } from '../calc/lotout';
 import { targetFor } from '../calc/cost';
 import type { CostCategory, LotEntry, Target } from '../types';
@@ -208,6 +208,44 @@ export const CostChart = ({ d, year, cat, label, height = 340 }: { d: ReportData
       { key: 'variance', name: 'Variance', color: C.varUp, digits: 0 },
     ]} />
 );
+
+/**
+ * Lots sent vs Lot out FG per month. FG uses its own right-hand scale (a few lots against hundreds sent)
+ * so both stay readable; clicking a month opens its FG details.
+ */
+export function SentFgChart({ d, year, onPick, height = 320 }: { d: ReportData; year: number; onPick: (month: string) => void; height?: number }) {
+  const rows = monthlySentFg(monthsIn({ kind: 'year', year }), d.lot, d.summaries);
+  const data = rows.map((r) => ({ name: short(r.month), month: r.month, sent: r.sent, fg: r.fg }));
+  const fgMax = Math.max(1, ...rows.map((r) => r.fg ?? 0));
+  const pick = (i: number | undefined) => { if (i !== undefined && data[i]) onPick(data[i].month); };
+  return (
+    <figure className="chart clickable">
+      <figcaption>
+        <span className="chart-title">Lot ส่งตรวจ เทียบ Lot out FG รายเดือน {year}<small>กดที่แท่งของเดือนเพื่อดูรายละเอียดงานที่ถูก Lot out FG</small></span>
+        <span className="chart-legend">
+          <span><i style={{ background: C.std }} />Lot ส่งตรวจ (แกนซ้าย)</span>
+          <span><i style={{ background: C.varDown }} />Lot out FG (แกนขวา)</span>
+        </span>
+      </figcaption>
+      <ResponsiveContainer width="100%" height={height}>
+        <ComposedChart data={data} margin={{ top: 22, right: 4, left: 0, bottom: 0 }} barGap={3} barCategoryGap="22%"
+          onClick={(e: { activeTooltipIndex?: number } | null) => pick(e?.activeTooltipIndex)}>
+          <CartesianGrid stroke="#eeedf6" strokeDasharray="4 4" vertical={false} />
+          <XAxis dataKey="name" tick={<XTick />} height={36} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={0} />
+          <YAxis yAxisId="l" tick={AXIS} axisLine={false} tickLine={false} width={44} />
+          <YAxis yAxisId="r" orientation="right" tick={{ ...AXIS, fill: C.varDown }} axisLine={false} tickLine={false} width={30} allowDecimals={false} domain={[0, Math.ceil(fgMax * 1.25)]} />
+          <Tooltip cursor={{ fill: 'rgba(108,92,231,.08)' }} formatter={(v: number, n: string) => [fmtNum(v, 0), n]} />
+          <Bar yAxisId="l" dataKey="sent" name="Lot ส่งตรวจ" fill={C.std} radius={[6, 6, 6, 6]} maxBarSize={30} isAnimationActive={false} onClick={(_: unknown, i: number) => pick(i)}>
+            <LabelList dataKey="sent" content={(p) => <BarValue {...(p as LabelProps)} fmt={(v) => fmtNum(v, 0)} vertical={false} color="#2a2750" />} />
+          </Bar>
+          <Bar yAxisId="r" dataKey="fg" name="Lot out FG" fill={C.varDown} radius={[6, 6, 6, 6]} maxBarSize={30} isAnimationActive={false} onClick={(_: unknown, i: number) => pick(i)}>
+            <LabelList dataKey="fg" content={(p) => <BarValue {...(p as LabelProps)} fmt={(v) => fmtNum(v, 0)} vertical={false} color={C.varDown} />} />
+          </Bar>
+        </ComposedChart>
+      </ResponsiveContainer>
+    </figure>
+  );
+}
 
 export const yearOf = (p: import('../types').Period) =>
   p.kind === 'year' ? p.year : Number((p.kind === 'month' ? p.month : p.to).slice(0, 4));

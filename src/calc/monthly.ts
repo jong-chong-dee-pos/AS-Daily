@@ -19,7 +19,18 @@ export function monthlyLot(months: string[], lot: LotEntry[], summaries: Monthly
     const s = summaries.find((x) => x.month === m);
     if (!s || s.lotSent === null) return lotTotals([]);
     const out = s.lotOut ?? 0;
-    return { sent: s.lotSent, patrol: 0, fg: out, out, pct: s.lotSent > 0 ? (out / s.lotSent) * 100 : null };
+    const fg = s.lotFg ?? out;
+    return { sent: s.lotSent, patrol: Math.max(0, out - fg), fg, out, pct: s.lotSent > 0 ? (out / s.lotSent) * 100 : null };
+  });
+}
+
+/** Lot sent and Lot out FG per month; fg is null where an imported month has no FG count yet. */
+export function monthlySentFg(months: string[], lot: LotEntry[], summaries: MonthlySummary[]): { month: string; sent: number | null; fg: number | null; detail: boolean }[] {
+  return months.map((m) => {
+    const e = lot.filter((l) => l.date.startsWith(m));
+    if (e.length) { const t = lotTotals(e); return { month: m, sent: t.sent, fg: t.fg, detail: true }; }
+    const s = summaries.find((x) => x.month === m);
+    return { month: m, sent: s?.lotSent ?? null, fg: s?.lotFg ?? null, detail: false };
   });
 }
 

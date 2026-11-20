@@ -9,7 +9,8 @@ import { FilterBar } from '../ui/FilterBar';
 import { usePeriod } from '../ui/usePeriod';
 import { fmtDate, fmtMonth, fmtNum } from '../ui/format';
 import { ExportButtons } from '../ui/ExportButtons';
-import { LotDailyChart, LotMonthChart, LotWeekChart, lotChartMonth, yearOf } from '../ui/ExcelCharts';
+import { LotDailyChart, LotMonthChart, LotWeekChart, SentFgChart, lotChartMonth, yearOf } from '../ui/ExcelCharts';
+import { useNavigate } from 'react-router-dom';
 import { periodName } from './ReportPer';
 
 interface Row { label: string; t: LotTotals; target: number; strong?: boolean }
@@ -47,6 +48,7 @@ export function ReportLot() {
   const year = yearOf(period);
   const yearData = useReportData({ kind: 'year', year });
   const yd = yearData.data;
+  const navigate = useNavigate();
   const chartMonth = yd ? lotChartMonth(period, yd.lot) : null;
   const built = useMemo(() => (data ? buildLotRows(data, period) : null), [data, period]);
   const head = ['ช่วง', 'Lot ส่งตรวจ', 'Lot out Patrol', 'Lot out FG', 'Lot out รวม', 'Lot out %', 'เป้า ≤%'];
@@ -64,6 +66,7 @@ export function ReportLot() {
         <div id="report-lot">
           {yd && (
             <div className="charts">
+              <div className="wide"><SentFgChart d={yd} year={year} onPick={(m) => navigate(`/report/lot/fg?m=${m}`)} /></div>
               <LotMonthChart d={yd} year={year} />
               {chartMonth && <LotWeekChart lot={yd.lot} month={chartMonth} targets={yd.targets} label={fmtMonth(chartMonth)} />}
               {chartMonth && <div className="wide"><LotDailyChart lot={yd.lot} month={chartMonth} targets={yd.targets} label={fmtMonth(chartMonth)} /></div>}

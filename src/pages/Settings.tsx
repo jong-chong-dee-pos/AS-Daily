@@ -259,7 +259,7 @@ function TargetsSection() {
   );
 }
 
-interface SumRow { key: string; orig: string; month: string; per: string; sent: string; out: string }
+interface SumRow { key: string; orig: string; month: string; per: string; sent: string; out: string; fg: string }
 const isYear = (m: string) => /^\d{4}$/.test(m);
 const thisYear = new Date().getFullYear();
 const YEARS = Array.from({ length: thisYear - 2015 + 2 }, (_, i) => 2015 + i).reverse();
@@ -269,19 +269,20 @@ export function SummarySection() {
     // String range '2000'..'2100-12' covers both month rows (YYYY-MM) and year rows (YYYY).
     return (await repo.getMonthlySummaries('2000', '2100-12'))
       .sort((a, b) => b.month.localeCompare(a.month))
-      .map((s: MonthlySummary): SumRow => ({ key: s.month, orig: s.month, month: s.month, per: s.per == null ? '' : String(s.per), sent: s.lotSent == null ? '' : String(s.lotSent), out: s.lotOut == null ? '' : String(s.lotOut) }));
+      .map((s: MonthlySummary): SumRow => ({ key: s.month, orig: s.month, month: s.month, per: s.per == null ? '' : String(s.per), sent: s.lotSent == null ? '' : String(s.lotSent), out: s.lotOut == null ? '' : String(s.lotOut), fg: s.lotFg == null ? '' : String(s.lotFg) }));
   }, [repo]));
   const bad = (s: string) => Number.isNaN(parseNum(s));
   return (
     <CrudTable<SumRow>
       title="ข้อมูลสรุปย้อนหลัง (เดือนที่ไม่มีข้อมูลรายวัน)" rows={rows} getId={(r) => r.key} addLabel="เพิ่มเดือน/ปี"
       filter={(r, q) => r.month.includes(q) || (!isYear(r.month) && fmtMonth(r.month).includes(q))}
-      newRow={() => ({ key: newId('sum'), orig: '', month: `${thisYear}-01`, per: '', sent: '', out: '' })}
+      newRow={() => ({ key: newId('sum'), orig: '', month: `${thisYear}-01`, per: '', sent: '', out: '', fg: '' })}
       validate={(r, all) => (all.filter((x) => x.month === r.month).length > 1 ? `${isYear(r.month) ? `ทั้งปี ${r.month}` : fmtMonth(r.month)} มีอยู่แล้ว`
-        : bad(r.per) || bad(r.sent) || bad(r.out) ? 'กรอกตัวเลข 0 ขึ้นไป' : null)}
+        : bad(r.per) || bad(r.sent) || bad(r.out) || bad(r.fg) ? 'กรอกตัวเลข 0 ขึ้นไป'
+          : (parseNum(r.fg) ?? 0) > (parseNum(r.out) ?? Infinity) ? 'Lot out FG มากกว่า Lot out รวม' : null)}
       onSave={async (ups, del) => {
         for (const r of ups) {
-          await repo.saveSummary({ month: r.month, per: parseNum(r.per), lotSent: parseNum(r.sent), lotOut: parseNum(r.out) });
+          await repo.saveSummary({ month: r.month, per: parseNum(r.per), lotSent: parseNum(r.sent), lotOut: parseNum(r.out), lotFg: parseNum(r.fg) });
           if (r.orig && r.orig !== r.month) await repo.deleteSummary(r.orig);
         }
         for (const k of del) { const r = rows.find((x) => x.key === k); if (r?.orig) await repo.deleteSummary(r.orig); }
@@ -302,7 +303,8 @@ export function SummarySection() {
         ) },
         { label: '% PER', className: 'num', render: (r, set) => <input aria-label={`% PER ${r.month}`} className={bad(r.per) ? 'invalid' : ''} value={r.per} onChange={(e) => set({ per: e.target.value })} /> },
         { label: 'Lot ส่งตรวจ', className: 'num', render: (r, set) => <input aria-label={`Lot ส่งตรวจ ${r.month}`} className={bad(r.sent) ? 'invalid' : ''} value={r.sent} onChange={(e) => set({ sent: e.target.value })} /> },
-        { label: 'Lot out', className: 'num', render: (r, set) => <input aria-label={`Lot out ${r.month}`} className={bad(r.out) ? 'invalid' : ''} value={r.out} onChange={(e) => set({ out: e.target.value })} /> },
+        { label: 'Lot out รวม', className: 'num', render: (r, set) => <input aria-label={`Lot out ${r.month}`} className={bad(r.out) ? 'invalid' : ''} value={r.out} onChange={(e) => set({ out: e.target.value })} /> },
+        { label: 'Lot out FG', className: 'num', render: (r, set) => <input aria-label={`Lot out FG ${r.month}`} placeholder="กรอก" className={bad(r.fg) ? 'invalid' : ''} value={r.fg} onChange={(e) => set({ fg: e.target.value })} /> },
       ]}
     />
   );
