@@ -209,38 +209,75 @@ export const CostChart = ({ d, year, cat, label, height = 340 }: { d: ReportData
     ]} />
 );
 
+/** Percentage label on a white pill so it stays readable where it crosses bars. */
+function PctPill({ x, y, value, color }: { x?: number; y?: number; value?: number | null; color: string }) {
+  if (x === undefined || y === undefined || value === null || value === undefined) return null;
+  const text = `${fmtNum(value, 2)}%`;
+  const w = text.length * 6.2 + 10;
+  return (
+    <g>
+      <rect x={x - w / 2} y={y - 23} width={w} height={16} rx={8} fill="#fff" stroke={color} strokeWidth={1.2} />
+      <text x={x} y={y - 11.5} textAnchor="middle" fontSize={10.5} fontWeight={700} fill={color}>{text}</text>
+    </g>
+  );
+}
+
 /**
- * Lots sent vs Lot out FG per month. FG uses its own right-hand scale (a few lots against hundreds sent)
- * so both stay readable; clicking a month opens its FG details.
+ * One chart per year: lots sent (left axis), Lot out FG count (bars, value on each bar),
+ * Lot out FG % and its target (right axis). Clicking a month opens its FG details.
  */
-export function SentFgChart({ d, year, onPick, height = 320 }: { d: ReportData; year: number; onPick: (month: string) => void; height?: number }) {
-  const rows = monthlySentFg(monthsIn({ kind: 'year', year }), d.lot, d.summaries);
-  const data = rows.map((r) => ({ name: short(r.month), month: r.month, sent: r.sent, fg: r.fg }));
+export function SentFgChart({ d, year, onPick, height = 380 }: { d: ReportData; year: number; onPick: (month: string) => void; height?: number }) {
+  const months = monthsIn({ kind: 'year', year });
+  const rows = monthlySentFg(months, d.lot, d.summaries);
+  const data = rows.map((r) => ({
+    name: short(r.month), month: r.month, sent: r.sent, fg: r.fg,
+    pct: r.fg !== null && r.sent ? (r.fg / r.sent) * 100 : null,
+    target: targetFor(d.targets, r.month).lotOutTarget,
+  }));
   const fgMax = Math.max(1, ...rows.map((r) => r.fg ?? 0));
+  const pctMax = Math.max(...data.map((p) => Math.max(p.pct ?? 0, p.target)));
   const pick = (i: number | undefined) => { if (i !== undefined && data[i]) onPick(data[i].month); };
+  const label = d.labels?.lot ?? 'เป้า';
   return (
     <figure className="chart clickable">
       <figcaption>
-        <span className="chart-title">Lot ส่งตรวจ เทียบ Lot out FG รายเดือน {year}<small>กดที่แท่งของเดือนเพื่อดูรายละเอียดงานที่ถูก Lot out FG</small></span>
+        <span className="chart-title">Lot ส่งตรวจ เทียบ Lot out FG และ Lot out FG % รายเดือน {year}<small>กดที่เดือนเพื่อดูรายละเอียดงานที่ถูก Lot out FG</small></span>
         <span className="chart-legend">
           <span><i style={{ background: C.std }} />Lot ส่งตรวจ (แกนซ้าย)</span>
-          <span><i style={{ background: C.varDown }} />Lot out FG (แกนขวา)</span>
+          <span><i style={{ background: C.varDown }} />Lot out FG (ตัวเลขในแท่ง)</span>
+          <span><i style={{ background: C.act }} />Lot out FG % (แกนขวา)</span>
+          <span><i className="ln" style={{ borderTopColor: C.target }} />{label} ≤ {range(data.map((p) => p.target), 2)}%</span>
         </span>
       </figcaption>
       <ResponsiveContainer width="100%" height={height}>
-        <ComposedChart data={data} margin={{ top: 22, right: 4, left: 0, bottom: 0 }} barGap={3} barCategoryGap="22%"
+        <ComposedChart data={data} margin={{ top: 28, right: 4, left: 0, bottom: 0 }} barGap={3} barCategoryGap="22%"
           onClick={(e: { activeTooltipIndex?: number } | null) => pick(e?.activeTooltipIndex)}>
           <CartesianGrid stroke="#eeedf6" strokeDasharray="4 4" vertical={false} />
           <XAxis dataKey="name" tick={<XTick />} height={36} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={0} />
           <YAxis yAxisId="l" tick={AXIS} axisLine={false} tickLine={false} width={44} />
-          <YAxis yAxisId="r" orientation="right" tick={{ ...AXIS, fill: C.varDown }} axisLine={false} tickLine={false} width={30} allowDecimals={false} domain={[0, Math.ceil(fgMax * 1.25)]} />
-          <Tooltip cursor={{ fill: 'rgba(108,92,231,.08)' }} formatter={(v: number, n: string) => [fmtNum(v, 0), n]} />
-          <Bar yAxisId="l" dataKey="sent" name="Lot ส่งตรวจ" fill={C.std} radius={[6, 6, 6, 6]} maxBarSize={30} isAnimationActive={false} onClick={(_: unknown, i: number) => pick(i)}>
+          <YAxis yAxisId="r" orientation="right" tick={{ ...AXIS, fill: C.act }} axisLine={false} tickLine={false} width={44}
+            domain={[0, Math.ceil(pctMax * 1.5 * 10) / 10]} tickFormatter={(v: number) => `${fmtNum(v, 1)}%`} />
+          {/* FG counts are tiny next to hundreds of lots: own hidden scale, kept low so the % line stays clear. */}
+          <YAxis yAxisId="f" hide domain={[0, fgMax * 5.5]} />
+          <Tooltip cursor={{ fill: 'rgba(108,92,231,.08)' }}
+            formatter={(v: number, n: string) => [n.includes('%') || n.startsWith(label) ? `${fmtNum(v, 2)}%` : fmtNum(v, 0), n]} />
+          <Bar yAxisId="l" dataKey="sent" name="Lot ส่งตรวจ" fill={C.std} fillOpacity={0.85} radius={[6, 6, 6, 6]} maxBarSize={30} isAnimationActive={false} onClick={(_: unknown, i: number) => pick(i)}>
             <LabelList dataKey="sent" content={(p) => <BarValue {...(p as LabelProps)} fmt={(v) => fmtNum(v, 0)} vertical={false} color="#2a2750" />} />
           </Bar>
-          <Bar yAxisId="r" dataKey="fg" name="Lot out FG" fill={C.varDown} radius={[6, 6, 6, 6]} maxBarSize={30} isAnimationActive={false} onClick={(_: unknown, i: number) => pick(i)}>
-            <LabelList dataKey="fg" content={(p) => <BarValue {...(p as LabelProps)} fmt={(v) => fmtNum(v, 0)} vertical={false} color={C.varDown} />} />
+          <Bar yAxisId="f" dataKey="fg" name="Lot out FG" fill={C.varDown} radius={[6, 6, 6, 6]} maxBarSize={30} isAnimationActive={false} onClick={(_: unknown, i: number) => pick(i)}>
+            <LabelList dataKey="fg" content={(p) => {
+              // Count sits inside the bar in white, so the % line crossing above never covers it.
+              const { x = 0, y = 0, width = 0, height = 0, value } = p as LabelProps;
+              if (value === null || value === undefined) return null;
+              if (value === 0) return <text x={x + width / 2} y={y - 4} textAnchor="middle" fontSize={10} fill="#aeacc4">0</text>;
+              return <text x={x + width / 2} y={y + Math.min(14, height - 3)} textAnchor="middle" fontSize={11} fontWeight={700} fill="#fff">{fmtNum(value, 0)}</text>;
+            }} />
           </Bar>
+          <Line yAxisId="r" dataKey="target" name={`${label} ≤`} stroke={C.target} strokeWidth={2} strokeDasharray="6 4" type="stepAfter" dot={false} isAnimationActive={false} />
+          <Line yAxisId="r" dataKey="pct" name="Lot out FG %" stroke={C.act} strokeWidth={2.4} connectNulls={false} isAnimationActive={false}
+            dot={{ r: 4, fill: '#fff', stroke: C.act, strokeWidth: 2 }}>
+            <LabelList dataKey="pct" content={(p) => <PctPill {...(p as { x?: number; y?: number; value?: number | null })} color={C.act} />} />
+          </Line>
         </ComposedChart>
       </ResponsiveContainer>
     </figure>

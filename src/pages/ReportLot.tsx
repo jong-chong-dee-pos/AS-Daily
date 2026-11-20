@@ -9,7 +9,7 @@ import { FilterBar } from '../ui/FilterBar';
 import { usePeriod } from '../ui/usePeriod';
 import { fmtDate, fmtMonth, fmtNum } from '../ui/format';
 import { ExportButtons } from '../ui/ExportButtons';
-import { LotDailyChart, LotMonthChart, LotWeekChart, SentFgChart, lotChartMonth, yearOf } from '../ui/ExcelCharts';
+import { LotDailyChart, LotWeekChart, SentFgChart, lotChartMonth, yearOf } from '../ui/ExcelCharts';
 import { useNavigate } from 'react-router-dom';
 import { periodName } from './ReportPer';
 
@@ -67,7 +67,6 @@ export function ReportLot() {
           {yd && (
             <div className="charts">
               <div className="wide"><SentFgChart d={yd} year={year} onPick={(m) => navigate(`/report/lot/fg?m=${m}`)} /></div>
-              <LotMonthChart d={yd} year={year} />
               {chartMonth && <LotWeekChart lot={yd.lot} month={chartMonth} targets={yd.targets} label={fmtMonth(chartMonth)} />}
               {chartMonth && <div className="wide"><LotDailyChart lot={yd.lot} month={chartMonth} targets={yd.targets} label={fmtMonth(chartMonth)} /></div>}
             </div>
