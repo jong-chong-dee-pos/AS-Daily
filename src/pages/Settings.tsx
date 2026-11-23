@@ -5,6 +5,7 @@ import { DEFAULT_LOT_OUT_TARGET, DEFAULT_PER_TARGET } from '../calc/cost';
 import { DEFAULT_TARGET_LABELS, type AppUser, type Line, type MonthlySummary, type Role, type Setter, type Target, type TargetLabels, type Worker } from '../types';
 import { fmtMonth, THAI_MONTHS } from '../ui/format';
 import { CrudTable } from '../ui/CrudTable';
+import type { WorkerRef } from '../data/artifactRepo';
 import { parseNum } from './EntryDaily';
 
 const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
@@ -153,13 +154,16 @@ type WorkerRow = Worker & { lineId: string };
 export function WorkersSection() {
   const repo = useRepo();
   const [lines, setLines] = useState<Line[]>([]);
+  const [refs, setRefs] = useState<Record<string, WorkerRef>>({});
   const { rows, reload } = useList(useCallback(async () => {
-    const [ws, ls] = await Promise.all([repo.listWorkers(), repo.listLines()]);
-    setLines(ls);
+    const [ws, ls, rf] = await Promise.all([repo.listWorkers(), repo.listLines(), repo.workerRefs()]);
+    setLines(ls); setRefs(rf);
     return ws.sort((a, b) => a.name.localeCompare(b.name, 'th'))
       .map((w): WorkerRow => ({ ...w, lineId: ls.find((l) => l.defaultWorkerIds.includes(w.id))?.id ?? '' }));
   }, [repo]));
   return (
+    <>
+    <MissingWorkers refs={refs} workers={rows} lines={lines} onFixed={reload} />
     <CrudTable<WorkerRow>
       title="พนักงาน" rows={rows} getId={(w) => w.id} addLabel="เพิ่มพนักงาน"
       filter={(w, q) => `${w.name} ${lines.find((l) => l.id === w.lineId)?.code ?? ''}`.toLowerCase().includes(q)}
@@ -173,14 +177,22 @@ export function WorkersSection() {
           await repo.saveWorker({ id: w.id, name: w.name.trim(), active: w.active });
           if (w.lineId) next.get(w.lineId)?.push(w.id);
         }
-        for (const id of del) await repo.deleteWorker(id);
+        // Someone who appears in past records is kept (as not in use) so old reports keep the name.
+        const kept: string[] = [];
+        for (const id of del) {
+          const w = rows.find((x) => x.id === id);
+          const used = (refs[id]?.count ?? 0) - lines.filter((l) => l.defaultWorkerIds.includes(id)).length > 0;
+          if (w && used) { await repo.saveWorker({ id, name: w.name.trim(), active: false }); kept.push(w.name.trim()); }
+          else await repo.deleteWorker(id);
+        }
         for (const l of lines) {
           const ids = next.get(l.id) ?? [];
           if (ids.join() !== l.defaultWorkerIds.join()) await repo.saveLine({ ...l, defaultWorkerIds: ids });
         }
         await reload();
+        if (kept.length) return `บันทึกแล้ว ${kept.join(', ')} มีข้อมูลย้อนหลัง จึงเปลี่ยนเป็น “ไม่ใช้งาน” แทนการลบ ชื่อในรายงานเดิมจะยังถูกต้อง`;
       }}
-      note="1 คนประจำได้ 1 U-Line ชื่อจะขึ้นเป็นค่าเริ่มต้นในหน้ากรอกข้อมูลรายวัน วันที่ย้ายไลน์เปลี่ยนได้ตอนกรอก พนักงานที่ลาออกให้เอาติ๊ก “ใช้งาน” ออก"
+      note="แก้ชื่อที่นี่แล้วทุกหน้าจะแสดงชื่อใหม่ทันที รวมถึงข้อมูลย้อนหลัง 1 คนประจำได้ 1 U-Line ชื่อจะขึ้นเป็นค่าเริ่มต้นในหน้ากรอกข้อมูลรายวัน วันที่ย้ายไลน์เปลี่ยนได้ตอนกรอก พนักงานที่ลาออกให้เอาติ๊ก “ใช้งาน” ออก"
       columns={[
         { label: 'ชื่อ - สกุล', render: (w, set) => <input aria-label="ชื่อพนักงาน" className="wide" style={{ minWidth: 220 }} value={w.name} onChange={(e) => set({ name: e.target.value })} /> },
         { label: 'U-Line ประจำ', render: (w, set) => (
@@ -192,6 +204,58 @@ export function WorkersSection() {
         { label: 'ใช้งาน', render: (w, set) => <input type="checkbox" aria-label={`ใช้งาน ${w.name}`} checked={w.active} onChange={(e) => set({ active: e.target.checked })} /> },
       ]}
     />
+    </>
+  );
+}
+
+/**
+ * Records that still point at a worker who was deleted (they showed as codes like "w20").
+ * Lets the admin hand those records to a current worker, or take the name off them.
+ */
+export function MissingWorkers({ refs, workers, lines = [], onFixed }: { refs: Record<string, WorkerRef>; workers: Worker[]; lines?: Line[]; onFixed: () => Promise<void> | void }) {
+  const repo = useRepo();
+  const missing = Object.entries(refs).filter(([id, r]) => r.count > 0 && !workers.some((w) => w.id === id));
+  const [pick, setPick] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState('');
+  const [msg, setMsg] = useState('');
+  if (!missing.length) return msg ? <span className="status" role="status">{msg}</span> : null;
+  const sorted = [...workers].sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  const fix = async (id: string) => {
+    const to = pick[id] ?? '';
+    setBusy(id); setMsg('');
+    try {
+      await repo.replaceWorker(id, to === '-' ? null : to);
+      setMsg(to === '-' ? 'เอาชื่อที่ไม่มีแล้วออกจากข้อมูลเรียบร้อย' : `ย้ายข้อมูลไปที่ ${workers.find((w) => w.id === to)?.name ?? ''} เรียบร้อย`);
+      await onFixed();
+    } catch { setMsg('แก้ไม่สำเร็จ ลองอีกครั้ง'); } finally { setBusy(''); }
+  };
+  return (
+    <div className="notice" role="note" style={{ width: '100%' }}>
+      <b>มีข้อมูลที่อ้างถึงพนักงานที่ถูกลบไปแล้ว {missing.length} รหัส (ในรายงานจะขึ้นเป็น “ไม่พบชื่อ”)</b>
+      <span>เลือกว่าข้อมูลเหล่านี้เป็นของใคร แล้วกด “แก้ข้อมูล” ระบบจะเปลี่ยนทุกวันที่เกี่ยวข้องให้เป็นชื่อนั้น</span>
+      <table style={{ marginTop: 8 }}>
+        <thead><tr><th>รหัสเดิม</th><th className="num">จำนวนรายการ</th><th>ช่วงวันที่</th><th>ไลน์</th><th>เป็นของ</th><th /></tr></thead>
+        <tbody>
+          {missing.map(([id, r]) => (
+            <tr key={id}>
+              <td><code>{id}</code></td>
+              <td className="num">{r.count}</td>
+              <td>{r.first ? `${r.first} ถึง ${r.last}` : 'ค่าเริ่มต้นของไลน์'}</td>
+              <td>{(r.lineIds ?? []).map((id) => lines.find((l) => l.id === id)?.code ?? id).join(', ') || '—'}</td>
+              <td>
+                <select aria-label={`เป็นของ ${id}`} value={pick[id] ?? ''} onChange={(e) => setPick((p) => ({ ...p, [id]: e.target.value }))}>
+                  <option value="">— เลือกพนักงาน —</option>
+                  {sorted.map((w) => <option key={w.id} value={w.id}>{w.name}{w.active ? '' : ' (ไม่ใช้งาน)'}</option>)}
+                  <option value="-">ไม่ระบุ (เอาชื่อออก)</option>
+                </select>
+              </td>
+              <td><button type="button" className="sm" disabled={!pick[id] || !!busy} onClick={() => fix(id)}>{busy === id ? 'กำลังแก้…' : 'แก้ข้อมูล'}</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {msg && <span role="status">{msg}</span>}
+    </div>
   );
 }
 

@@ -16,7 +16,8 @@ interface Props<T> {
   newRow: () => T;
   /** Error text for an invalid row, or null. */
   validate?: (row: T, all: T[]) => string | null;
-  onSave: (upserts: T[], deletedIds: string[]) => Promise<void>;
+  /** May return a message to show instead of the usual saved count. */
+  onSave: (upserts: T[], deletedIds: string[]) => Promise<string | void>;
   addLabel?: string;
   filter?: (row: T, q: string) => boolean;
   toolbar?: ReactNode;
@@ -72,8 +73,8 @@ export function CrudTable<T>({ title, rows, getId, columns, newRow, validate, on
     setBusy(true); setStatus('กำลังบันทึก…');
     try {
       const ups = items.filter((r) => !deleted.has(getId(r)) && (dirty.has(getId(r)) || added.has(getId(r))));
-      await onSave(ups, [...deleted]);
-      setStatus(`บันทึกแล้ว (${ups.length} แก้ไข/เพิ่ม, ${deleted.size} ลบ)`);
+      const msg = await onSave(ups, [...deleted]);
+      setStatus(msg || `บันทึกแล้ว (${ups.length} แก้ไข/เพิ่ม, ${deleted.size} ลบ)`);
     } catch (e) {
       setStatus(e instanceof Error && /[\u0E00-\u0E7F]/.test(e.message) ? e.message : 'บันทึกไม่สำเร็จ ลองอีกครั้ง');
     } finally { setBusy(false); }

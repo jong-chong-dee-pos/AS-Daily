@@ -2,6 +2,7 @@ import { Photo } from '../ui/Photo';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRepo } from '../data/RepoContext';
 import { ABSENCE_LABEL, type Absence, type AbsenceReason, type Line, type LotItem, type LotKind, type Worker } from '../types';
+import { workerLabel } from '../ui/labels';
 import { daysInMonth } from '../calc/period';
 import { fmtDate, fmtMonth, todayIso } from '../ui/format';
 
@@ -129,6 +130,13 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
     } finally { setUploading(''); }
   };
 
+  /** Active workers, plus the one already recorded even if no longer in use or deleted. */
+  const workerOptions = (current?: string) => {
+    const extra = current && !activeWorkers.some((w) => w.id === current)
+      ? [{ id: current, name: `${workerLabel(workers, current)} (ไม่ใช้งาน)` }] : [];
+    return [...extra, ...activeWorkers].map((w) => <option key={w.id} value={w.id}>{w.name}</option>);
+  };
+
   const workerSelect = (lineId: string, idx: number) => {
     const ids = rows[lineId]?.workerIds ?? [];
     return (
@@ -138,7 +146,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
           setRow(lineId, { workerIds: next.filter((x, i) => x || i === 0).slice(0, 2) });
         }}>
         <option value="">{idx === 0 ? '— เลือก —' : '—'}</option>
-        {activeWorkers.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+        {workerOptions(ids[idx])}
       </select>
     );
   };
@@ -285,7 +293,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
                     <tr key={a.key}>
                       <td><select aria-label="พนักงานที่ไม่มา" className={a.workerId ? '' : 'invalid'} value={a.workerId} onChange={(e) => setAbs(a.key, { workerId: e.target.value })}>
                         <option value="">— เลือก —</option>
-                        {activeWorkers.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                        {workerOptions(a.workerId)}
                       </select></td>
                       <td><select aria-label="สาเหตุ" value={a.reason} onChange={(e) => setAbs(a.key, { reason: e.target.value as AbsenceReason })}>
                         {(Object.keys(ABSENCE_LABEL) as AbsenceReason[]).map((r) => <option key={r} value={r}>{ABSENCE_LABEL[r]}</option>)}

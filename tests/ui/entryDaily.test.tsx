@@ -67,4 +67,10 @@ describe('EntryDaily', () => {
     fireEvent.change(screen.getByLabelText('Lot out FG'), { target: { value: '2' } });
     expect(screen.getByText(/มี Lot out 2 Lot ยังไม่ได้บันทึกรายละเอียด/)).toBeInTheDocument();
   });
+  it('keeps a recorded worker who is no longer in use', async () => {
+    const repo = fakeRepo({ ...data, workers: data.workers.map((w) => (w.id === 'w3' ? { ...w, active: false } : w)) });
+    render(<RepoContext.Provider value={repo}><EntryDaily initialDate="2026-11-03" /></RepoContext.Provider>);
+    await waitFor(() => expect(screen.getAllByLabelText('พนักงาน 1')[1]).toHaveValue('w3'));
+    expect(screen.getAllByRole('option', { name: 'สมศรี (ไม่ใช้งาน)' }).length).toBeGreaterThan(0);
+  });
 });

@@ -6,6 +6,7 @@ export interface FakeData {
   lines?: Line[]; workers?: Worker[]; per?: PerEntry[]; lot?: LotEntry[];
   cost?: CostMonth[]; targets?: Target[]; summaries?: MonthlySummary[]; absences?: AbsenceDay[];
   setters?: Setter[]; labels?: TargetLabels;
+  refs?: Record<string, { count: number; first: string; last: string }>;
 }
 
 export const L = (id: string, setter: string, extra: Partial<Line> = {}): Line => ({
@@ -50,6 +51,8 @@ export function fakeRepo(d: FakeData = {}) {
     createUser: vi.fn(async () => 'new-uid'),
     deleteUser: vi.fn(async () => {}),
     importDocs: vi.fn(async () => {}),
+    workerRefs: vi.fn(async () => (d.refs ?? {})),
+    replaceWorker: vi.fn(async () => 1),
     getImage: vi.fn(async () => 'data:image/jpeg;base64,xx'),
   };
   return r as unknown as Repo & typeof r;

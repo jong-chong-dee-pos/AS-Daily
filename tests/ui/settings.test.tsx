@@ -94,3 +94,29 @@ describe('Settings import', () => {
     await waitFor(() => expect(repo.importDocs).toHaveBeenCalledWith(docs.slice(0, 2), expect.any(Function)));
   });
 });
+
+describe('Settings workers keep reports correct', () => {
+  const workers = [{ id: 'w19', name: 'นายสุชาติ อาจโยคะ', active: true }, { id: 'w21', name: 'นายณัฐวุฒิ เดชธรรม', active: true }];
+  it('a worker who has past records is set to not in use instead of deleted', async () => {
+    const repo = fakeRepo({ workers, refs: { w19: { count: 5, first: '2026-11-02', last: '2026-11-20' } } });
+    render(<RepoContext.Provider value={repo}><WorkersSection /></RepoContext.Provider>);
+    await waitFor(() => screen.getByLabelText('ใช้งาน นายณัฐวุฒิ เดชธรรม'));
+    fireEvent.click(screen.getAllByRole('checkbox', { name: 'เลือกแถว' })[0]);
+    fireEvent.click(screen.getAllByRole('checkbox', { name: 'เลือกแถว' })[1]);
+    fireEvent.click(screen.getByRole('button', { name: /ลบที่เลือก/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^บันทึก/ }));
+    await waitFor(() => expect(repo.deleteWorker).toHaveBeenCalledWith('w21'));
+    expect(repo.deleteWorker).not.toHaveBeenCalledWith('w19');
+    expect(repo.saveWorker).toHaveBeenCalledWith({ id: 'w19', name: 'นายสุชาติ อาจโยคะ', active: false });
+    expect(await screen.findByText(/เปลี่ยนเป็น “ไม่ใช้งาน” แทนการลบ/)).toBeInTheDocument();
+  });
+  it('lists records of deleted workers and hands them to the chosen person', async () => {
+    const repo = fakeRepo({ workers, refs: { w20: { count: 8, first: '2026-11-02', last: '2026-11-20' }, w19: { count: 3, first: '', last: '' } } });
+    render(<RepoContext.Provider value={repo}><WorkersSection /></RepoContext.Provider>);
+    await waitFor(() => screen.getByText('w20'));
+    expect(screen.queryByText('w19')).toBeNull();
+    fireEvent.change(screen.getByLabelText('เป็นของ w20'), { target: { value: 'w19' } });
+    fireEvent.click(screen.getByRole('button', { name: 'แก้ข้อมูล' }));
+    await waitFor(() => expect(repo.replaceWorker).toHaveBeenCalledWith('w20', 'w19'));
+  });
+});
