@@ -1,3 +1,4 @@
+import { Photo } from '../ui/Photo';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRepo } from '../data/RepoContext';
 import { ABSENCE_LABEL, type Absence, type AbsenceReason, type Line, type LotItem, type LotKind, type Worker } from '../types';
@@ -249,14 +250,14 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
                         <div className="thumbs">
                           {it.images.map((u) => (
                             <span key={u} className="thumb">
-                              <a href={u} target="_blank" rel="noreferrer"><img src={u} alt={`รูป ${it.partNo}`} /></a>
+                              <Photo src={u} alt={`รูป ${it.partNo}`} />
                               <button type="button" aria-label="ลบรูป" onClick={() => setItem(it.id, { images: it.images.filter((x) => x !== u) })}>×</button>
                             </span>
                           ))}
                           {repo.uploadImage
                             ? <label className="upload">{uploading === it.id ? 'กำลังอัปโหลด…' : '+ รูป'}
                                 <input type="file" accept="image/*" multiple aria-label={`แนบรูป ${it.partNo}`} onChange={(e) => { upload(it.id, e.target.files); e.target.value = ''; }} /></label>
-                            : <span className="hint">แนบรูปได้บน claude.ai</span>}
+                            : <span className="hint">แนบรูปไม่ได้</span>}
                         </div>
                       </td>
                     </tr>,

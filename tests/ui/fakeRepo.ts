@@ -47,6 +47,10 @@ export function fakeRepo(d: FakeData = {}) {
     saveTarget: vi.fn(async () => {}),
     saveUser: vi.fn(async () => {}),
     saveUserRole: vi.fn(async () => {}),
+    createUser: vi.fn(async () => 'new-uid'),
+    deleteUser: vi.fn(async () => {}),
+    importDocs: vi.fn(async () => {}),
+    getImage: vi.fn(async () => 'data:image/jpeg;base64,xx'),
   };
   return r as unknown as Repo & typeof r;
 }

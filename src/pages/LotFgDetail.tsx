@@ -1,3 +1,4 @@
+import { Photo } from '../ui/Photo';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useRepo } from '../data/RepoContext';
@@ -68,7 +69,7 @@ export function LotFgDetail() {
                   <td className="note-cell" style={{ color: 'var(--ink)' }}>{r.note || '—'}</td>
                   <td>
                     <div className="thumbs big">
-                      {r.images.map((u) => <a key={u} href={u} target="_blank" rel="noreferrer"><img src={u} alt={`รูป ${r.partNo}`} /></a>)}
+                      {r.images.map((u) => <Photo key={u} src={u} alt={`รูป ${r.partNo}`} />)}
                       {r.images.length === 0 && <span className="hint">ไม่มีรูป</span>}
                     </div>
                   </td>

@@ -74,8 +74,8 @@ export function CrudTable<T>({ title, rows, getId, columns, newRow, validate, on
       const ups = items.filter((r) => !deleted.has(getId(r)) && (dirty.has(getId(r)) || added.has(getId(r))));
       await onSave(ups, [...deleted]);
       setStatus(`บันทึกแล้ว (${ups.length} แก้ไข/เพิ่ม, ${deleted.size} ลบ)`);
-    } catch {
-      setStatus('บันทึกไม่สำเร็จ ลองอีกครั้ง');
+    } catch (e) {
+      setStatus(e instanceof Error && /[\u0E00-\u0E7F]/.test(e.message) ? e.message : 'บันทึกไม่สำเร็จ ลองอีกครั้ง');
     } finally { setBusy(false); }
   };
 

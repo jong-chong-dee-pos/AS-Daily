@@ -21,13 +21,31 @@ beforeEach(async () => {
 const repo = () => makeRepo(env.authenticatedContext('ed').firestore() as unknown as Firestore, () => 'ed');
 
 describe('repo', () => {
+  it('stores a month per document and stamps the writer', async () => {
+    await repo().savePerDay('2026-11-03', [{ date: '2026-11-03', lineId: 'sl1', workerIds: [], per: 120 }]);
+    let snap: unknown;
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const { getDoc } = await import('firebase/firestore');
+      snap = (await getDoc(doc(ctx.firestore() as unknown as Firestore, 'perMonth', '2026-11'))).data();
+    });
+    expect(snap).toMatchObject({ updatedBy: 'ed', entries: { '2026-11-03_sl1': { per: 120 } } });
+  });
+  it('imports exported documents', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore() as unknown as Firestore, 'users', 'ad'), { name: 'ad', email: 'a@x', role: 'admin' }));
+    const r = makeRepo(env.authenticatedContext('ad').firestore() as unknown as Firestore, () => 'ad');
+    await r.importDocs!([{ path: 'lotMonth/2026-10', data: { days: { '2026-10-02': { sent: 9, patrol: 0, fg: 1, items: [] } }, updatedAt: 'old' } },
+      { path: 'lines/sl1', data: { name: 'SL1', order: 1, active: true } }]);
+    expect(await r.getLotEntries('2026-10-01', '2026-10-31')).toEqual([{ date: '2026-10-02', sent: 9, patrol: 0, fg: 1, items: [] }]);
+    expect((await r.listLines()).map((l) => l.name)).toEqual(['SL1']);
+  });
   it('saving the same day twice overwrites, no duplicates', async () => {
     const r = repo();
     await r.savePerDay('2026-11-03', [{ date: '2026-11-03', lineId: 'sl1', workerIds: ['w1'], per: 100 }]);
     await r.savePerDay('2026-11-03', [{ date: '2026-11-03', lineId: 'sl1', workerIds: ['w2'], per: 130 }]);
     const got = await r.getPerEntries('2026-11-01', '2026-11-30');
     expect(got).toHaveLength(1);
-    expect(got[0]).toMatchObject({ per: 130, workerIds: ['w2'], updatedBy: 'ed' });
+    expect(got[0]).toMatchObject({ per: 130, workerIds: ['w2'] });
   });
   it('clearing a value deletes the entry', async () => {
     const r = repo();

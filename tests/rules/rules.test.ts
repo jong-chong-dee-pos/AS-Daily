@@ -27,28 +27,33 @@ beforeEach(async () => {
 });
 
 const as = (uid: string) => env.authenticatedContext(uid).firestore();
-const per = (by: string) => ({ date: '2026-11-03', lineId: 'sl1', workerIds: [], per: 120, updatedBy: by });
+const per = (by: string) => ({ entries: { '2026-11-03_sl1': { workerIds: [], per: 120 } }, updatedBy: by });
 
 describe('firestore rules', () => {
   it('unauthenticated read is denied', async () => {
-    await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'perDaily', 'x')));
+    await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'perMonth', 'x')));
   });
   it('signed-in user without a role is denied', async () => {
     await assertFails(getDoc(doc(as('stranger'), 'costMonthly', '2026-11')));
   });
   it('viewer reads costs but cannot write data', async () => {
     await assertSucceeds(getDoc(doc(as('vw'), 'costMonthly', '2026-11')));
-    await assertFails(setDoc(doc(as('vw'), 'perDaily', '2026-11-03_sl1'), per('vw')));
+    await assertFails(setDoc(doc(as('vw'), 'perMonth', '2026-11'), per('vw')));
   });
   it('editor writes data stamped with own uid only', async () => {
-    await assertSucceeds(setDoc(doc(as('ed'), 'perDaily', '2026-11-03_sl1'), per('ed')));
-    await assertFails(setDoc(doc(as('ed'), 'perDaily', '2026-11-03_sl1'), per('ad')));
+    await assertSucceeds(setDoc(doc(as('ed'), 'perMonth', '2026-11'), per('ed')));
+    await assertFails(setDoc(doc(as('ed'), 'perMonth', '2026-11'), per('ad')));
   });
   it('editor cannot change settings or accounts; admin can', async () => {
     for (const c of ['lines', 'targets', 'users', 'workers']) {
       await assertFails(setDoc(doc(as('ed'), c, 'x'), { a: 1 }));
       await assertSucceeds(setDoc(doc(as('ad'), c, 'x'), { a: 1 }));
     }
+  });
+  it('viewer cannot write images; editor can, within size', async () => {
+    await assertFails(setDoc(doc(as('vw'), 'images', 'i1'), { data: 'x', updatedBy: 'vw' }));
+    await assertSucceeds(setDoc(doc(as('ed'), 'images', 'i1'), { data: 'x', updatedBy: 'ed' }));
+    await assertFails(setDoc(doc(as('ed'), 'images', 'i2'), { data: 'x'.repeat(950000), updatedBy: 'ed' }));
   });
   it('user cannot raise own role', async () => {
     await assertFails(setDoc(doc(as('vw'), 'users', 'vw'), { name: 'vw', email: 'vw@x', role: 'admin' }));

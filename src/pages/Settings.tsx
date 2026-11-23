@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRepo } from '../data/RepoContext';
+import { useAuth } from '../auth/context';
 import { DEFAULT_LOT_OUT_TARGET, DEFAULT_PER_TARGET } from '../calc/cost';
 import { DEFAULT_TARGET_LABELS, type AppUser, type Line, type MonthlySummary, type Role, type Setter, type Target, type TargetLabels, type Worker } from '../types';
 import { fmtMonth, THAI_MONTHS } from '../ui/format';
@@ -9,12 +10,13 @@ import { parseNum } from './EntryDaily';
 const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 const numOrNull = (s: string) => { const n = parseNum(s); return n === null || Number.isNaN(n) ? null : n; };
 
-type Tab = 'lines' | 'setters' | 'workers' | 'targets' | 'summary' | 'users';
+type Tab = 'lines' | 'setters' | 'workers' | 'targets' | 'summary' | 'users' | 'import';
 
 export function Settings({ manageUsers = true }: { manageUsers?: boolean }) {
   const [tab, setTab] = useState<Tab>('lines');
+  const canImport = !!useRepo().importDocs;
   const tabs: [Tab, string][] = [['lines', 'U-Line'], ['setters', 'Setter'], ['workers', 'พนักงาน'], ['targets', 'เป้าหมายรายเดือน'], ['summary', 'ข้อมูลสรุปย้อนหลัง'],
-    ...(manageUsers ? [['users', 'ผู้ใช้และสิทธิ์'] as [Tab, string]] : [])];
+    ...(manageUsers ? [['users', 'ผู้ใช้และสิทธิ์'] as [Tab, string]] : []), ...(canImport ? [['import', 'นำเข้าข้อมูล'] as [Tab, string]] : [])];
   return (
     <section>
       <div className="page-head"><h1>ตั้งค่า</h1><span className="muted">เลือก เพิ่ม แก้ไข ลบ แล้วกดบันทึก</span></div>
@@ -27,6 +29,7 @@ export function Settings({ manageUsers = true }: { manageUsers?: boolean }) {
       {tab === 'targets' && <TargetsSection />}
       {tab === 'summary' && <SummarySection />}
       {tab === 'users' && <UsersSection />}
+      {tab === 'import' && <ImportSection />}
     </section>
   );
 }
@@ -311,27 +314,98 @@ export function SummarySection() {
 }
 
 const ROLE: Record<Role, string> = { admin: 'ผู้ดูแล', editor: 'ผู้กรอก', viewer: 'ผู้ดู' };
-type UserRow = AppUser & { key: string };
-function UsersSection() {
+type UserRow = AppUser & { key: string; password: string };
+export function UsersSection() {
   const repo = useRepo();
-  const { rows, reload } = useList(useCallback(async () => (await repo.listUsers() as AppUser[]).map((u): UserRow => ({ ...u, key: u.uid })), [repo]));
+  const { user: me } = useAuth();
+  const { rows, reload } = useList(useCallback(async () => (await repo.listUsers()).map((u): UserRow => ({ ...u, key: u.uid, password: '' })), [repo]));
+  const isNew = (u: UserRow) => !u.uid;
   return (
     <CrudTable<UserRow>
       title="ผู้ใช้และสิทธิ์" rows={rows} getId={(u) => u.key} addLabel="เพิ่มผู้ใช้"
-      newRow={() => ({ key: newId('u'), uid: '', name: '', email: '', role: 'viewer' })}
-      validate={(u) => (!u.uid.trim() || !u.name.trim() ? 'กรอก User UID และชื่อ' : null)}
-      onSave={async (ups) => { for (const u of ups) await repo.saveUser({ uid: u.uid.trim(), name: u.name.trim(), email: u.email.trim(), role: u.role }); await reload(); }}
-      note="สร้างบัญชีใน Firebase Console › Authentication ก่อน แล้วคัดลอก User UID มาใส่"
+      newRow={() => ({ key: newId('u'), uid: '', name: '', email: '', role: 'viewer', password: '' })}
+      validate={(u, all) => {
+        if (!u.name.trim() || !/^\S+@\S+\.\S+$/.test(u.email.trim())) return 'กรอกชื่อและอีเมลให้ถูกต้อง';
+        if (isNew(u) && u.password.length < 6) return 'รหัสผ่านอย่างน้อย 6 ตัวอักษร';
+        if (all.some((x) => x !== u && x.email.trim().toLowerCase() === u.email.trim().toLowerCase())) return `อีเมล ${u.email} ซ้ำ`;
+        if (u.uid === me?.uid && u.role !== 'admin') return 'เปลี่ยนสิทธิ์ของตัวเองไม่ได้';
+        return null;
+      }}
+      onSave={async (ups, deletedIds) => {
+        for (const u of ups) {
+          const v = { name: u.name.trim(), email: u.email.trim(), role: u.role };
+          if (isNew(u)) {
+            if (!repo.createUser) throw new Error('สร้างบัญชีได้เฉพาะเว็บ Firebase');
+            try { await repo.createUser(v, u.password); } catch (e) {
+              const code = (e as { code?: string }).code ?? '';
+              throw new Error(code.includes('email-already-in-use') ? `อีเมล ${v.email} มีบัญชีอยู่แล้ว` : code.includes('invalid-email') ? `อีเมล ${v.email} ไม่ถูกต้อง` : `สร้างบัญชี ${v.email} ไม่สำเร็จ`);
+            }
+          } else await repo.saveUser({ ...v, uid: u.uid });
+        }
+        for (const id of deletedIds) if (id !== me?.uid) await repo.deleteUser?.(id);
+        await reload();
+      }}
+      note="ผู้ดู = ดูรายงานและ Export ได้อย่างเดียว · ผู้ดูแล = กรอกข้อมูลและตั้งค่าได้ · ส่งอีเมลและรหัสผ่านเริ่มต้นให้แต่ละคนเอง · ลบ = เอาสิทธิ์เข้าดูออก"
       columns={[
-        { label: 'User UID', render: (u, set) => <input aria-label="User UID" className="mid" value={u.uid} onChange={(e) => set({ uid: e.target.value })} /> },
-        { label: 'ชื่อ', render: (u, set) => <input aria-label="ชื่อ" className="mid" value={u.name} onChange={(e) => set({ name: e.target.value })} /> },
-        { label: 'อีเมล', render: (u, set) => <input aria-label="อีเมล" className="mid" value={u.email} onChange={(e) => set({ email: e.target.value })} /> },
+        { label: 'ชื่อ', render: (u, set) => <input aria-label="ชื่อผู้ใช้" className="mid" value={u.name} onChange={(e) => set({ name: e.target.value })} /> },
+        { label: 'อีเมล (ใช้ล็อกอิน)', render: (u, set) => isNew(u)
+          ? <input aria-label="อีเมล" type="email" style={{ width: 220, textAlign: 'left' }} value={u.email} onChange={(e) => set({ email: e.target.value })} />
+          : <span>{u.email}</span> },
+        { label: 'รหัสผ่านเริ่มต้น', render: (u, set) => isNew(u)
+          ? <input aria-label="รหัสผ่านเริ่มต้น" className="mid" value={u.password} placeholder="อย่างน้อย 6 ตัว" onChange={(e) => set({ password: e.target.value })} />
+          : <span className="hint">ตั้งไว้แล้ว</span> },
         { label: 'สิทธิ์', render: (u, set) => (
           <select aria-label={`สิทธิ์ ${u.name}`} value={u.role} onChange={(e) => set({ role: e.target.value as Role })}>
-            {(['admin', 'editor', 'viewer'] as Role[]).map((r) => <option key={r} value={r}>{ROLE[r]}</option>)}
+            {(['viewer', 'editor', 'admin'] as Role[]).map((r) => <option key={r} value={r}>{ROLE[r]}</option>)}
           </select>
         ) },
       ]}
     />
+  );
+}
+
+type ExportDoc = { path: string; data: Record<string, unknown> };
+/** Loads the JSON exported from the old Claude page into this database. */
+export function ImportSection() {
+  const repo = useRepo();
+  const [docs, setDocs] = useState<ExportDoc[] | null>(null);
+  const [status, setStatus] = useState('');
+  const [busy, setBusy] = useState(false);
+  const read = async (f: File | undefined) => {
+    setDocs(null); setStatus('');
+    if (!f) return;
+    try {
+      const text = await new Promise<string>((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = bad; r.readAsText(f); });
+      const raw = JSON.parse(text);
+      const list = (Array.isArray(raw) ? raw : []).filter((d): d is ExportDoc =>
+        d && typeof d.path === 'string' && /^[A-Za-z]+\/[^/]+$/.test(d.path) && d.data && typeof d.data === 'object' && !d.path.startsWith('users/'));
+      if (!list.length) { setStatus('ไฟล์นี้ไม่มีข้อมูลที่นำเข้าได้'); return; }
+      setDocs(list);
+    } catch { setStatus('อ่านไฟล์ไม่ได้ ต้องเป็นไฟล์ .json ที่ได้รับ'); }
+  };
+  const run = async () => {
+    if (!docs || !repo.importDocs) return;
+    setBusy(true);
+    try {
+      await repo.importDocs(docs, (n) => setStatus(`กำลังนำเข้า ${n}/${docs.length}`));
+      setStatus(`นำเข้าเสร็จ ${docs.length} รายการ`);
+    } catch { setStatus('นำเข้าไม่สำเร็จ ลองอีกครั้ง (ต้องเป็นผู้ดูแล)'); }
+    finally { setBusy(false); }
+  };
+  const count = (p: string) => docs?.filter((d) => d.path.startsWith(p + '/')).length ?? 0;
+  return (
+    <div className="panel">
+      <div className="panel-head"><h2>นำเข้าข้อมูลจากหน้าเดิม</h2><span className="hint">ข้อมูลเดิมเดือนเดียวกันจะถูกเขียนทับ</span></div>
+      <label className="upload" style={{ position: 'relative' }}>เลือกไฟล์ .json
+        <input type="file" accept="application/json,.json" aria-label="ไฟล์ข้อมูล" onChange={(e) => read(e.target.files?.[0])} /></label>
+      {docs && (
+        <p style={{ marginTop: 12 }}>พบ {docs.length} รายการ: U-Line {count('lines')}, พนักงาน {count('workers')}, % PER {count('perMonth')} เดือน,
+          Lot out {count('lotMonth')} เดือน, ต้นทุน {count('costMonthly')} เดือน, เป้า {count('targets')}, สรุปย้อนหลัง {count('monthlySummary')}</p>
+      )}
+      <div className="actions">
+        <button type="button" disabled={!docs || busy} onClick={run}>นำเข้า</button>
+        <span className="status" role="status">{status}</span>
+      </div>
+    </div>
   );
 }

@@ -1,5 +1,4 @@
-import type { Repo } from './repo';
-import type { Absence, AbsenceDay, CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Setter, Target, TargetLabels, Worker } from '../types';
+import type { AppUser, Role, Absence, AbsenceDay, CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Setter, Target, TargetLabels, Worker } from '../types';
 
 /** The subset of the Claude artifact `db` capability this app uses. */
 export interface ArtifactDocSnap { id: string; exists: boolean; data(): Record<string, unknown> | undefined }
@@ -35,7 +34,7 @@ export function monthKeys(from: string, to: string): string[] {
  * Daily rows are grouped one document per month (perMonth/YYYY-MM, lotMonth/YYYY-MM)
  * to keep the document count small; everything else mirrors the Firestore layout.
  */
-export function makeArtifactRepo(db: ArtifactDb, uploadImage?: (f: Blob) => Promise<string>): Repo {
+export function makeArtifactRepo(db: ArtifactDb, uploadImage?: (f: Blob) => Promise<string>) {
   const stamp = () => ({ updatedAt: new Date().toISOString() });
   const all = async <T>(name: string): Promise<T[]> =>
     (await db.collection(name).get()).docs.map((d) => ({ ...d.data(), id: d.id }) as T);
@@ -53,7 +52,7 @@ export function makeArtifactRepo(db: ArtifactDb, uploadImage?: (f: Blob) => Prom
     deleteSetter: (id: string) => db.doc(`setters/${id}`).delete(),
     getTargetLabels: async () => { const d = (await db.doc('settings/targetLabels').get()).data(); return d ? ({ per: String(d.per ?? ''), lot: String(d.lot ?? '') }) as TargetLabels : null; },
     saveTargetLabels: (l: TargetLabels) => db.doc('settings/targetLabels').set({ ...l, ...stamp() }),
-    listUsers: async () => [],
+    listUsers: async (): Promise<AppUser[]> => [],
 
     async getPerEntries(from: string, to: string): Promise<PerEntry[]> {
       const docs = await Promise.all(monthKeys(from, to).map((m) => read<PerMonthDoc>(`perMonth/${m}`)));
@@ -115,8 +114,10 @@ export function makeArtifactRepo(db: ArtifactDb, uploadImage?: (f: Blob) => Prom
     saveLine: (l: Line) => db.doc(`lines/${l.id}`).set({ ...strip(l), ...stamp() }),
     saveWorker: (w: Worker) => db.doc(`workers/${w.id}`).set({ ...strip(w), ...stamp() }),
     saveTarget: (t: Target) => db.doc(`targets/${t.month}`).set({ ...t, ...stamp() }),
-    saveUser: async () => {},
-    saveUserRole: async () => {},
+    saveUser: async (_u: AppUser) => {},
+    saveUserRole: async (_t: string, _r: Role, _n: string, _e: string) => {},
   };
-  return repo as unknown as Repo;
+  return repo;
 }
+
+export type BaseRepo = ReturnType<typeof makeArtifactRepo>;

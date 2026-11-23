@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { RepoContext } from '../../src/data/RepoContext';
-import { LinesSection, SettersSection, SummarySection, WorkersSection } from '../../src/pages/Settings';
+import { ImportSection, LinesSection, SettersSection, SummarySection, UsersSection, WorkersSection } from '../../src/pages/Settings';
 import { fakeRepo, L } from './fakeRepo';
 
 describe('Settings lines', () => {
@@ -64,5 +64,33 @@ describe('Settings setters, workers, summaries', () => {
     fireEvent.click(screen.getByRole('button', { name: /^บันทึก/ }));
     await waitFor(() => expect(repo.saveSummary).toHaveBeenCalledWith({ month: '2026-03', per: 120, lotSent: 10, lotOut: 1, lotFg: null }));
     expect(repo.deleteSummary).toHaveBeenCalledWith('2026-01');
+  });
+});
+
+describe('Settings users', () => {
+  it('creates a viewer account with email and starting password', async () => {
+    const repo = fakeRepo({});
+    render(<RepoContext.Provider value={repo}><UsersSection /></RepoContext.Provider>);
+    fireEvent.click(screen.getByRole('button', { name: '+ เพิ่มผู้ใช้' }));
+    fireEvent.change(screen.getByLabelText('ชื่อผู้ใช้'), { target: { value: 'สมชาย' } });
+    fireEvent.change(screen.getByLabelText('อีเมล'), { target: { value: 'som@x.com' } });
+    fireEvent.change(screen.getByLabelText('รหัสผ่านเริ่มต้น'), { target: { value: '123' } });
+    expect(screen.getByRole('alert')).toHaveTextContent('รหัสผ่านอย่างน้อย 6 ตัวอักษร');
+    fireEvent.change(screen.getByLabelText('รหัสผ่านเริ่มต้น'), { target: { value: '123456' } });
+    fireEvent.click(screen.getByRole('button', { name: /^บันทึก/ }));
+    await waitFor(() => expect(repo.createUser).toHaveBeenCalledWith({ name: 'สมชาย', email: 'som@x.com', role: 'viewer' }, '123456'));
+  });
+});
+
+describe('Settings import', () => {
+  it('reads an exported file and imports its documents', async () => {
+    const repo = fakeRepo({});
+    render(<RepoContext.Provider value={repo}><ImportSection /></RepoContext.Provider>);
+    const docs = [{ path: 'lines/sl1', data: { name: 'SL1' } }, { path: 'lotMonth/2026-10', data: { days: {} } }, { path: 'users/x', data: { role: 'admin' } }];
+    const file = new File([JSON.stringify(docs)], 'data.json', { type: 'application/json' });
+    fireEvent.change(screen.getByLabelText('ไฟล์ข้อมูล'), { target: { files: [file] } });
+    await waitFor(() => screen.getByText(/พบ 2 รายการ/));
+    fireEvent.click(screen.getByRole('button', { name: 'นำเข้า' }));
+    await waitFor(() => expect(repo.importDocs).toHaveBeenCalledWith(docs.slice(0, 2), expect.any(Function)));
   });
 });
