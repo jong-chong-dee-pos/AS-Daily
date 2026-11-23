@@ -32,7 +32,7 @@ export function LotFgDetail() {
   const rows = useMemo(() => (lot ?? []).flatMap((e) => (e.items ?? []).filter((i) => i.kind === 'fg').map((i) => ({ ...i, date: e.date }))), [lot]);
   const t = lot && lot.length ? lotTotals(lot) : null;
   const sent = t ? t.sent : summary?.lotSent ?? null;
-  const fg = t ? t.fg : summary?.lotFg ?? null;
+  const fg = t ? t.fg : summary ? summary.lotFg ?? summary.lotOut ?? null : null;
   const lineName = (id?: string) => lines.find((l) => l.id === id)?.code ?? '—';
   const go = (m: string) => setSp({ m });
 
@@ -78,7 +78,7 @@ export function LotFgDetail() {
               {rows.length === 0 && (
                 <tr><td colSpan={6} className="empty">
                   {t ? 'เดือนนี้ยังไม่มีรายละเอียด Lot out FG บันทึกได้ที่หน้ากรอกข้อมูลรายวัน ส่วน “รายละเอียด Lot out”'
-                    : 'เดือนนี้นำเข้าจาก Excel มีแต่ยอดรวม ไม่มีรายละเอียดรายงาน'}
+                    : summary ? 'เดือนนี้นำเข้าจาก Excel มีแต่ยอดรวม ไม่มีรายละเอียดรายงาน' : 'ยังไม่มีข้อมูลของเดือนนี้'}
                 </td></tr>
               )}
             </tbody>

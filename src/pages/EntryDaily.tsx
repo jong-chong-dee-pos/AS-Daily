@@ -84,6 +84,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
   const lotInvalid = bad(lot.sent) || bad(lot.patrol) || bad(lot.fg);
   const sent = parseNum(lot.sent), patrol = parseNum(lot.patrol), fg = parseNum(lot.fg);
   const lotOverflow = !lotInvalid && (patrol ?? 0) + (fg ?? 0) > (sent ?? 0) && (patrol ?? 0) + (fg ?? 0) > 0;
+  const lotOutCount = (patrol ?? 0) + (fg ?? 0);
   const lotBlank = sent === null && patrol === null && fg === null && items.length === 0;
   const absInvalid = absences.some((a) => !a.workerId);
   const canSave = !busy && !perInvalid && !lotInvalid && !lotOverflow && !absInvalid && !uploading;
@@ -262,7 +263,10 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
                       </td>
                     </tr>,
                   ])}
-                  {items.length === 0 && <tr><td colSpan={5} className="hint">ไม่มี Lot out ที่ต้องบันทึก Part No.</td></tr>}
+                  {items.length === 0 && <tr><td colSpan={5} className="hint">{lotOutCount > 0
+                    ? `วันนี้มี Lot out ${lotOutCount} Lot ยังไม่ได้บันทึกรายละเอียด กด “+ เพิ่ม Part No.”`
+                    : 'วันนี้ไม่มี Lot out'}</td></tr>}
+                  {items.length > 0 && items.length < lotOutCount && <tr><td colSpan={5} className="hint">บันทึกรายละเอียดแล้ว {items.length} จาก {lotOutCount} Lot</td></tr>}
                 </tbody>
               </table>
             </div>

@@ -7,13 +7,14 @@ import { targetFor } from '../calc/cost';
 import { COST_CATEGORIES, type Period } from '../types';
 import { FilterBar } from '../ui/FilterBar';
 import { usePeriod } from '../ui/usePeriod';
-import { fmtBaht, fmtDate, fmtMonth, fmtNum } from '../ui/format';
+import { fmtBaht, fmtDate, fmtMonth, fmtNum, todayIso } from '../ui/format';
 import { COST_LABEL } from '../ui/labels';
 import { ExportButtons } from '../ui/ExportButtons';
 import { CostChart, LotMonthChart, PerMonthChart, lotMonthSeries, perMonthSeries } from '../ui/ExcelCharts';
 import { Icon } from '../ui/Layout';
 import { buildCostRows, costTotal } from './ReportCost';
 import { periodName } from './ReportPer';
+import { CostMissing, missingCostMonths } from '../ui/CostMissing';
 
 /** Progress track with a target tick; `max` sets the scale. */
 function Meter({ value, target, max, ok }: { value: number | null; target: number; max: number; ok: boolean | null }) {
@@ -90,11 +91,12 @@ export function Dashboard() {
               <Meter value={s.lot.pct} target={s.lotTarget} max={Math.max(s.lotTarget * 3, s.lot.pct ?? 0)} ok={lotOk} />
             </div>
           </div>
+          {period.kind === 'month' && <CostMissing months={missingCostMonths(data!, period, todayIso())} all />}
           <div className="cards cost">
             {s.cost.map((c) => (
               <div className="card c-cost" key={c.cat}>
                 <div className="card-head"><span className="card-icon"><Icon name="coin" /></span><span className="label">Variance {COST_LABEL[c.cat]}</span></div>
-                <div className={`value sm ${c.variance !== null && c.variance < 0 ? 'neg' : 'met'}`} data-testid={`kpi-var-${c.cat}`}>{c.variance !== null && c.variance > 0 ? '+' : ''}{fmtBaht(c.variance)}</div>
+                <div className={`value sm ${c.variance === null ? 'muted' : c.variance < 0 ? 'neg' : 'met'}`} data-testid={`kpi-var-${c.cat}`}>{c.variance === null ? 'ยังไม่มีข้อมูล' : `${c.variance > 0 ? '+' : ''}${fmtBaht(c.variance)}`}</div>
                 <div className="target"><span>Standard <b>{fmtBaht(c.standard)}</b></span><span>Actual <b>{fmtBaht(c.actual)}</b></span></div>
               </div>
             ))}

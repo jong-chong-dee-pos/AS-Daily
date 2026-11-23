@@ -20,7 +20,7 @@ export function AppRoutes({ manageUsers = true }: { manageUsers?: boolean }) {
         <Route path="report/lot/fg" element={<LotFgDetail />} />
         <Route path="report/cost" element={<ReportCost />} />
         <Route path="entry/daily" element={<RequireRole min="editor"><EntryDailyRoute /></RequireRole>} />
-        <Route path="entry/cost" element={<RequireRole min="editor"><EntryCost /></RequireRole>} />
+        <Route path="entry/cost" element={<RequireRole min="editor"><EntryCostRoute /></RequireRole>} />
         <Route path="settings" element={<RequireRole min="admin"><Settings manageUsers={manageUsers} /></RequireRole>} />
         <Route path="*" element={<p className="empty">ไม่พบหน้านี้</p>} />
       </Route>
@@ -33,4 +33,11 @@ function EntryDailyRoute() {
   const [sp] = useSearchParams();
   const d = sp.get('d');
   return <EntryDaily key={d ?? ''} initialDate={d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : undefined} />;
+}
+
+/** /entry/cost?m=YYYY-MM opens that month (links from the cost report and Dashboard). */
+function EntryCostRoute() {
+  const [sp] = useSearchParams();
+  const m = sp.get('m');
+  return <EntryCost key={m ?? ''} initialMonth={m && /^\d{4}-\d{2}$/.test(m) ? m : undefined} />;
 }

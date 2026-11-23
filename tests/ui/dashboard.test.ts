@@ -31,3 +31,14 @@ describe('Dashboard summary', () => {
     expect(s.lot.pct).toBeCloseTo(0.48, 2);
   });
 });
+
+import { missingCostMonths } from '../../src/ui/CostMissing';
+describe('cost not entered', () => {
+  it('lists months up to today that have no cost', () => {
+    const d = { lines: [], workers: [], per: [], lot: [], targets: [], summaries: [], prevYear: { lot: [], summaries: [], yearSummary: null },
+      cost: [{ month: '2026-10', standard: { electric: 1, laborOT: null, laborSub: null, consumed: null }, actual: { electric: 1, laborOT: null, laborSub: null, consumed: null } }] } as ReportData;
+    expect(missingCostMonths(d, { kind: 'month', month: '2026-11' }, '2026-11-23')).toEqual(['2026-11']);
+    expect(missingCostMonths(d, { kind: 'month', month: '2026-10' }, '2026-11-23')).toEqual([]);
+    expect(missingCostMonths(d, { kind: 'year', year: 2026 }, '2026-11-23')).toHaveLength(10);
+  });
+});

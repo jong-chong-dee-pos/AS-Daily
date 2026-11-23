@@ -293,3 +293,43 @@ export function lotChartMonth(p: import('../types').Period, lot: LotEntry[]): st
   const last = lot.map((e) => e.date).sort().pop();
   return last ? last.slice(0, 7) : null;
 }
+
+export interface RankRow { name: string; per: number; days?: number }
+
+/**
+ * Horizontal bars, one per line / Setter / person, best first, coloured by whether
+ * the period average met the target; the target is a dashed vertical line.
+ */
+export function PerRankChart({ title, sub, rows, target }: { title: string; sub?: string; rows: RankRow[]; target: number }) {
+  const data = [...rows].sort((a, b) => b.per - a.per);
+  const lo = Math.min(target, ...data.map((r) => r.per));
+  const hi = Math.max(target, ...data.map((r) => r.per));
+  const nameWidth = Math.min(200, Math.max(70, ...data.map((r) => r.name.length * 8 + 16)));
+  return (
+    <figure className="chart">
+      <figcaption>
+        <span className="chart-title">{title}{sub && <small>{sub}</small>}</span>
+        <span className="chart-legend">
+          <span><i style={{ background: C.varUp }} />ถึงเป้า</span>
+          <span><i style={{ background: C.varDown }} />ต่ำกว่าเป้า</span>
+          <span><i className="ln" style={{ borderTopColor: C.target }} />เป้า {fmtNum(target, 0)}%</span>
+        </span>
+      </figcaption>
+      <ResponsiveContainer width="100%" height={Math.max(140, data.length * 34 + 40)}>
+        <ComposedChart layout="vertical" data={data} margin={{ top: 8, right: 56, left: 0, bottom: 0 }} barCategoryGap="22%">
+          <CartesianGrid stroke="#eeedf6" strokeDasharray="4 4" horizontal={false} />
+          <XAxis type="number" tick={AXIS} axisLine={false} tickLine={false}
+            domain={[Math.max(0, Math.floor((lo - 15) / 10) * 10), Math.ceil((hi + 5) / 10) * 10]} tickFormatter={(v: number) => `${v}`} />
+          <YAxis type="category" dataKey="name" tick={{ ...AXIS, fill: '#2a2750' }} axisLine={false} tickLine={false} width={nameWidth} interval={0} />
+          <Tooltip cursor={{ fill: 'rgba(108,92,231,.06)' }}
+            formatter={(v: number) => [`${fmtNum(v, 1)}%`, '% PER เฉลี่ย']} />
+          <ReferenceLine x={target} stroke={C.target} strokeWidth={2} strokeDasharray="6 4" />
+          <Bar dataKey="per" name="% PER เฉลี่ย" radius={[0, 6, 6, 0]} maxBarSize={22} isAnimationActive={false}>
+            {data.map((r, i) => <Cell key={i} fill={r.per < target ? C.varDown : C.varUp} />)}
+            <LabelList dataKey="per" position="right" formatter={(v: number) => fmtNum(v, 1)} style={{ fontSize: 12, fontWeight: 600, fill: '#2a2750' }} />
+          </Bar>
+        </ComposedChart>
+      </ResponsiveContainer>
+    </figure>
+  );
+}
