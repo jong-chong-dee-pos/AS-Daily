@@ -19,12 +19,13 @@ jobs:
         env:
           SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          if [ -z "$SA" ] || [ ! -f .env.production ]; then
-            echo "::notice::FIREBASE_SERVICE_ACCOUNT secret or .env.production missing, deploy skipped"
+          if [ -z "$SA" ]; then
+            echo "::notice::FIREBASE_SERVICE_ACCOUNT secret missing, deploy skipped"
             echo "ok=false" >> "$GITHUB_OUTPUT"
           else
             printf '%s' "$SA" > sa.json
-            echo "project=$(grep VITE_FIREBASE_PROJECT_ID .env.production | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+            # The project id is read from the key file, so nothing else needs configuring.
+            echo "project=$(node -p "require('./sa.json').project_id")" >> "$GITHUB_OUTPUT"
             echo "ok=true" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.ready.outputs.ok == 'true'
