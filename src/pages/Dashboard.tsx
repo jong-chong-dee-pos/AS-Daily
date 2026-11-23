@@ -28,10 +28,13 @@ function Meter({ value, target, max, ok }: { value: number | null; target: numbe
 
 export function summarize(d: ReportData, p: Period) {
   const months = monthsIn(p);
-  const per = p.kind === 'year'
+  // Whole months (a year or one month) fall back to the imported monthly summary
+  // when no daily rows exist, e.g. Jan–Oct 2026 that came from Daily.xlsx.
+  const whole = p.kind !== 'range';
+  const per = whole
     ? mean(monthlyPer(months, d.per, d.lines, d.summaries).filter((v): v is number => v !== null))
     : overallAverage(d.per, d.lines);
-  const lot = p.kind === 'year' ? sumLot(monthlyLot(months, d.lot, d.summaries)) : lotTotals(d.lot);
+  const lot = whole ? sumLot(monthlyLot(months, d.lot, d.summaries)) : lotTotals(d.lot);
   const perTarget = mean(months.map((m) => targetFor(d.targets, m).perTarget)) ?? 125;
   const lotTarget = mean(months.map((m) => targetFor(d.targets, m).lotOutTarget)) ?? 0.5;
   const costRows = buildCostRows(d, p);

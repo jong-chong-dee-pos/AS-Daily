@@ -18,4 +18,16 @@ describe('Dashboard summary', () => {
     expect(s.lot.pct).toBeCloseTo(0.98, 2);
     expect(s.cost[0].variance).toBe(-50);
   });
+
+  it('month without daily rows uses the imported monthly summary', () => {
+    const d: ReportData = {
+      lines: [L('a', 'S')], workers: [], per: [], lot: [], cost: [], targets: [],
+      summaries: [{ month: '2026-10', per: 134.2, lotSent: 630, lotOut: 3 }],
+      prevYear: { lot: [], summaries: [], yearSummary: null },
+    };
+    const s = summarize(d, { kind: 'month', month: '2026-10' });
+    expect(s.per).toBeCloseTo(134.2, 1);
+    expect(s.lot).toMatchObject({ sent: 630, out: 3 });
+    expect(s.lot.pct).toBeCloseTo(0.48, 2);
+  });
 });

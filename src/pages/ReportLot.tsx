@@ -38,7 +38,9 @@ export function buildLotRows(d: ReportData, p: Period): { rows: Row[]; prevYearT
     const w = lotByWeek(d.lot, p.month);
     ([1, 2, 3, 4] as const).forEach((k) => rows.push({ label: `W${k}`, t: w[k], target: targetFor(d.targets, p.month).lotOutTarget, strong: true }));
   }
-  rows.push({ label: 'รวม', t: lotTotals(d.lot), target: targetFor(d.targets, monthOf(datesIn(p)[0])).lotOutTarget, strong: true });
+  // A month imported from Daily.xlsx has no daily rows; its total comes from the monthly summary.
+  const total = p.kind === 'month' ? monthlyLot([p.month], d.lot, d.summaries)[0] : lotTotals(d.lot);
+  rows.push({ label: 'รวม', t: total, target: targetFor(d.targets, monthOf(datesIn(p)[0])).lotOutTarget, strong: true });
   return { rows, prevYearTotal: null };
 }
 
