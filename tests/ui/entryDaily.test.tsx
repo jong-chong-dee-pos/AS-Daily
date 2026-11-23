@@ -73,4 +73,34 @@ describe('EntryDaily', () => {
     await waitFor(() => expect(screen.getAllByLabelText('พนักงาน 1')[1]).toHaveValue('w3'));
     expect(screen.getAllByRole('option', { name: 'สมศรี (ไม่ใช้งาน)' }).length).toBeGreaterThan(0);
   });
+  it('records the leave type and its reason; "other" needs a reason', async () => {
+    const repo = setup('2026-11-04');
+    await waitFor(() => screen.getByRole('button', { name: '+ เพิ่มคนที่ไม่มา' }));
+    fireEvent.click(screen.getByRole('button', { name: '+ เพิ่มคนที่ไม่มา' }));
+    const type = screen.getByLabelText('ประเภทการลา');
+    expect([...type.querySelectorAll('option')].map((o) => o.textContent)).toEqual(['ลาป่วย', 'ลากิจ', 'ลาพักร้อน', 'อื่นๆ', 'ขาดงาน']);
+    fireEvent.change(screen.getByLabelText('พนักงานที่ไม่มา'), { target: { value: 'w2' } });
+    fireEvent.change(type, { target: { value: 'other' } });
+    expect(screen.getByRole('alert')).toHaveTextContent('ประเภท “อื่นๆ” ต้องระบุสาเหตุ');
+    expect(screen.getByRole('button', { name: 'บันทึก' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('สาเหตุการลา'), { target: { value: 'งานศพญาติ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'บันทึก' }));
+    await waitFor(() => expect(repo.saveAbsenceDay).toHaveBeenCalledWith('2026-11-04', [{ workerId: 'w2', reason: 'other', note: 'งานศพญาติ' }]));
+  });
+  it('reads an old "ลา" record by the type in its note', async () => {
+    const repo = fakeRepo({ ...data, absences: [{ date: '2026-11-03', list: [
+      { workerId: 'w1', reason: 'leave', note: 'ลาป่วย ไข้หวัด' }, { workerId: 'w2', reason: 'leave', note: '' }, { workerId: 'w3', reason: 'absent', note: '' }] }] });
+    render(<RepoContext.Provider value={repo}><EntryDaily initialDate="2026-11-03" /></RepoContext.Provider>);
+    await waitFor(() => expect(screen.getAllByLabelText('ประเภทการลา')).toHaveLength(3));
+    const types = screen.getAllByLabelText('ประเภทการลา') as HTMLSelectElement[];
+    expect(types.map((t) => t.selectedOptions[0].textContent)).toEqual(['ลาป่วย', 'ลา (ไม่ระบุประเภท)', 'ขาดงาน']);
+    expect(screen.getAllByLabelText('สาเหตุการลา')[0]).toHaveValue('ไข้หวัด');
+  });
+  it('asks for the Product name before the Part No.', async () => {
+    setup('2026-11-04');
+    await waitFor(() => screen.getByRole('button', { name: '+ เพิ่ม Part No.' }));
+    fireEvent.click(screen.getByRole('button', { name: '+ เพิ่ม Part No.' }));
+    const product = screen.getByLabelText('ชื่อ Product'), part = screen.getByLabelText('Part No.');
+    expect(product.compareDocumentPosition(part) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });

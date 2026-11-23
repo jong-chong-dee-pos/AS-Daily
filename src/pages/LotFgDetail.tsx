@@ -58,14 +58,14 @@ export function LotFgDetail() {
       {lot !== null && (
         <div className="tablewrap">
           <table>
-            <thead><tr><th>วันที่</th><th>U-Line</th><th>Part No.</th><th>ชื่อ Product</th><th>รายละเอียดปัญหา</th><th>รูปภาพ</th></tr></thead>
+            <thead><tr><th>วันที่</th><th>U-Line</th><th>ชื่อ Product</th><th>Part No.</th><th>รายละเอียดปัญหา</th><th>รูปภาพ</th></tr></thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id}>
                   <td style={{ whiteSpace: 'nowrap' }}><Link to={`/entry/daily?d=${r.date}`}>{fmtDate(r.date)}</Link></td>
                   <td><b>{lineName(r.lineId)}</b></td>
-                  <td>{r.partNo || '—'}</td>
                   <td>{r.product || '—'}</td>
+                  <td>{r.partNo || '—'}</td>
                   <td className="note-cell" style={{ color: 'var(--ink)' }}>{r.note || '—'}</td>
                   <td>
                     <div className="thumbs big">

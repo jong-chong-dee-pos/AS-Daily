@@ -1,7 +1,7 @@
 import { Photo } from '../ui/Photo';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRepo } from '../data/RepoContext';
-import { ABSENCE_LABEL, type Absence, type AbsenceReason, type Line, type LotItem, type LotKind, type Worker } from '../types';
+import { ABSENCE_CHOICES, ABSENCE_LABEL, normalizeAbsence, type Absence, type AbsenceReason, type Line, type LotItem, type LotKind, type Worker } from '../types';
 import { workerLabel } from '../ui/labels';
 import { daysInMonth } from '../calc/period';
 import { fmtDate, fmtMonth, todayIso } from '../ui/format';
@@ -18,6 +18,10 @@ export function parseNum(s: string): number | null {
 const bad = (s: string) => Number.isNaN(parseNum(s));
 const newKey = () => `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const WEEKDAY = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+const REASON_HINT: Partial<Record<AbsenceReason, string>> = {
+  sick: 'สาเหตุ เช่น ไข้หวัด ปวดท้อง', personal: 'สาเหตุ เช่น ติดต่อราชการ ธุระครอบครัว', vacation: 'สาเหตุ (ถ้ามี)',
+  other: 'ระบุสาเหตุ (จำเป็น)', absent: 'สาเหตุ (ถ้าทราบ)', leave: 'สาเหตุการลา',
+};
 const shiftDay = (d: string, n: number) => {
   const t = new Date(`${d}T00:00:00Z`); t.setUTCDate(t.getUTCDate() + n);
   return t.toISOString().slice(0, 10);
@@ -61,7 +65,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
     const le = lots[0];
     setLot(le ? { sent: String(le.sent), patrol: String(le.patrol), fg: String(le.fg) } : { sent: '', patrol: '', fg: '' });
     setItems(le?.items ?? []);
-    setAbsences((abs[0]?.list ?? []).map((a) => ({ ...a, key: newKey() })));
+    setAbsences((abs[0]?.list ?? []).map((a) => ({ ...normalizeAbsence(a), key: newKey() })));
     setDirty(false); setBusy(false);
   }, [repo]);
 
@@ -88,7 +92,8 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
   const lotOutCount = (patrol ?? 0) + (fg ?? 0);
   const lotBlank = sent === null && patrol === null && fg === null && items.length === 0;
   const absInvalid = absences.some((a) => !a.workerId);
-  const canSave = !busy && !perInvalid && !lotInvalid && !lotOverflow && !absInvalid && !uploading;
+  const absOtherBlank = absences.some((a) => a.reason === 'other' && !a.note.trim());
+  const canSave = !busy && !perInvalid && !lotInvalid && !lotOverflow && !absInvalid && !absOtherBlank && !uploading;
 
   const setters = useMemo(() => {
     const order: string[] = [];
@@ -232,14 +237,14 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
             {lotOverflow && <p className="error" role="alert">Lot out มากกว่า Lot ส่งตรวจ</p>}
 
             <div className="panel-head" style={{ marginTop: 12 }}>
-              <h3>รายละเอียด Lot out</h3><span className="hint">U-Line, Product, ปัญหา และรูปประกอบ</span><span className="spacer" />
+              <h3>รายละเอียด Lot out</h3><span className="hint">U-Line, Product, Part No., ปัญหา และรูปประกอบ</span><span className="spacer" />
               <button type="button" className="secondary sm" onClick={() => {
                 setItems((xs) => [...xs, { id: newKey(), partNo: '', product: '', lineId: '', kind: (patrol ?? 0) > (fg ?? 0) ? 'patrol' : 'fg', note: '', images: [] }]); touch();
               }}>+ เพิ่ม Part No.</button>
             </div>
             <div className="tablewrap" style={{ boxShadow: 'none' }}>
               <table>
-                <thead><tr><th>U-Line</th><th>Part No.</th><th>ชื่อ Product</th><th>ประเภท</th><th /></tr></thead>
+                <thead><tr><th>U-Line</th><th>ชื่อ Product</th><th>Part No.</th><th>ประเภท</th><th /></tr></thead>
                 <tbody>
                   {items.map((it) => [
                     <tr key={it.id} className="item-top">
@@ -247,8 +252,8 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
                         <option value="">—</option>
                         {lines.map((l) => <option key={l.id} value={l.id}>{l.code}</option>)}
                       </select></td>
-                      <td><input aria-label="Part No." style={{ width: 86, textAlign: 'left' }} value={it.partNo} onChange={(e) => setItem(it.id, { partNo: e.target.value })} /></td>
                       <td><input aria-label="ชื่อ Product" style={{ width: 104, textAlign: 'left' }} value={it.product ?? ''} onChange={(e) => setItem(it.id, { product: e.target.value })} /></td>
+                      <td><input aria-label="Part No." style={{ width: 86, textAlign: 'left' }} value={it.partNo} onChange={(e) => setItem(it.id, { partNo: e.target.value })} /></td>
                       <td><select aria-label="ประเภท Lot out" value={it.kind} onChange={(e) => setItem(it.id, { kind: e.target.value as LotKind })}>
                         <option value="patrol">Patrol</option><option value="fg">FG</option></select></td>
                       <td className="actions-cell"><button type="button" className="danger sm" onClick={() => { setItems((xs) => xs.filter((x) => x.id !== it.id)); touch(); }}>ลบ</button></td>
@@ -282,31 +287,35 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
 
           <div className="panel">
             <div className="panel-head">
-              <h2>พนักงานที่ไม่มาทำงาน</h2><span className="hint">ลา ขาด หรืออื่นๆ</span><span className="spacer" />
-              <button type="button" className="secondary sm" onClick={() => { setAbsences((xs) => [...xs, { key: newKey(), workerId: '', reason: 'leave', note: '' }]); touch(); }}>+ เพิ่มคนที่ไม่มา</button>
+              <h2>พนักงานที่ไม่มาทำงาน</h2><span className="hint">ประเภทการลา และสาเหตุ</span><span className="spacer" />
+              <button type="button" className="secondary sm" onClick={() => { setAbsences((xs) => [...xs, { key: newKey(), workerId: '', reason: 'sick', note: '' }]); touch(); }}>+ เพิ่มคนที่ไม่มา</button>
             </div>
             <div className="tablewrap" style={{ boxShadow: 'none' }}>
               <table>
-                <thead><tr><th>พนักงาน</th><th>สาเหตุ</th><th>หมายเหตุ</th><th /></tr></thead>
+                <thead><tr><th>พนักงาน</th><th>ประเภทการลา</th><th /></tr></thead>
                 <tbody>
-                  {absences.map((a) => (
-                    <tr key={a.key}>
+                  {absences.map((a) => [
+                    <tr key={a.key} className="item-top">
                       <td><select aria-label="พนักงานที่ไม่มา" className={a.workerId ? '' : 'invalid'} value={a.workerId} onChange={(e) => setAbs(a.key, { workerId: e.target.value })}>
                         <option value="">— เลือก —</option>
                         {workerOptions(a.workerId)}
                       </select></td>
-                      <td><select aria-label="สาเหตุ" value={a.reason} onChange={(e) => setAbs(a.key, { reason: e.target.value as AbsenceReason })}>
-                        {(Object.keys(ABSENCE_LABEL) as AbsenceReason[]).map((r) => <option key={r} value={r}>{ABSENCE_LABEL[r]}</option>)}
+                      <td><select aria-label="ประเภทการลา" value={a.reason} onChange={(e) => setAbs(a.key, { reason: e.target.value as AbsenceReason })}>
+                        {[...(ABSENCE_CHOICES.includes(a.reason) ? [] : [a.reason]), ...ABSENCE_CHOICES].map((r) => <option key={r} value={r}>{ABSENCE_LABEL[r]}</option>)}
                       </select></td>
-                      <td><input aria-label="หมายเหตุการไม่มา" className="wide" placeholder={a.reason === 'leave' ? 'เช่น ลากิจ ลาป่วย ลาพักร้อน' : ''} value={a.note} onChange={(e) => setAbs(a.key, { note: e.target.value })} /></td>
                       <td className="actions-cell"><button type="button" className="danger sm" onClick={() => { setAbsences((xs) => xs.filter((x) => x.key !== a.key)); touch(); }}>ลบ</button></td>
-                    </tr>
-                  ))}
-                  {absences.length === 0 && <tr><td colSpan={4} className="hint">ทุกคนมาทำงาน</td></tr>}
+                    </tr>,
+                    <tr key={`${a.key}-r`} className="item-bottom">
+                      <td colSpan={3}><input aria-label="สาเหตุการลา" className={`wide ${a.reason === 'other' && !a.note.trim() ? 'invalid' : ''}`}
+                        placeholder={REASON_HINT[a.reason] ?? 'สาเหตุการลา'} value={a.note} onChange={(e) => setAbs(a.key, { note: e.target.value })} /></td>
+                    </tr>,
+                  ])}
+                  {absences.length === 0 && <tr><td colSpan={3} className="hint">ทุกคนมาทำงาน</td></tr>}
                 </tbody>
               </table>
             </div>
             {absInvalid && <p className="error" role="alert">เลือกชื่อพนักงานที่ไม่มาให้ครบ</p>}
+            {!absInvalid && absOtherBlank && <p className="error" role="alert">ประเภท “อื่นๆ” ต้องระบุสาเหตุ</p>}
           </div>
         </div>
       </div>
