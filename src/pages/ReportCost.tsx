@@ -4,11 +4,12 @@ import { variance } from '../calc/cost';
 import { COST_CATEGORIES, type CostCategory, type Period } from '../types';
 import { FilterBar } from '../ui/FilterBar';
 import { usePeriod } from '../ui/usePeriod';
-import { fmtBaht, fmtMonth } from '../ui/format';
+import { fmtBaht, fmtMonth, todayIso } from '../ui/format';
 import { COST_LABEL } from '../ui/labels';
 import { ExportButtons } from '../ui/ExportButtons';
 import { CostChart, yearOf } from '../ui/ExcelCharts';
 import { periodName } from './ReportPer';
+import { CostMissing, missingCostMonths } from '../ui/CostMissing';
 
 export interface CostRow { month: string; cat: CostCategory; standard: number | null; actual: number | null; variance: number | null; note: string }
 
@@ -47,6 +48,10 @@ export function ReportCost() {
       {!data && !error && <p className="empty">กำลังโหลด…</p>}
       {data && (
         <div id="report-cost">
+          {(() => {
+            const miss = missingCostMonths(data, period, todayIso());
+            return <CostMissing months={miss} all={miss.length === months.filter((m) => m <= todayIso().slice(0, 7)).length} />;
+          })()}
           {COST_CATEGORIES.map((cat) => {
             const tot = costTotal(rows, cat);
             return (

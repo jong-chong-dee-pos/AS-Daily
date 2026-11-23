@@ -59,4 +59,12 @@ describe('EntryDaily', () => {
     ]);
     expect(repo.saveLotDay).toHaveBeenCalledWith({ date: '2026-11-04', sent: 20, patrol: 1, fg: 0, items: [] });
   });
+  it('asks for Lot out details when Lot out was counted', async () => {
+    setup('2026-11-04');
+    await waitFor(() => screen.getByLabelText('Lot out FG'));
+    expect(screen.getByText('วันนี้ไม่มี Lot out')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Lot ส่งตรวจ'), { target: { value: '20' } });
+    fireEvent.change(screen.getByLabelText('Lot out FG'), { target: { value: '2' } });
+    expect(screen.getByText(/มี Lot out 2 Lot ยังไม่ได้บันทึกรายละเอียด/)).toBeInTheDocument();
+  });
 });

@@ -17,6 +17,12 @@ describe('ReportLot rows', () => {
     expect(rows[5].t.pct).toBeNull();
     expect(rows.at(-1)!.t.out).toBe(2);
   });
+  it('an imported month has only its total, no empty week rows', () => {
+    const d = { ...empty, summaries: [{ month: '2026-10', per: 134, lotSent: 630, lotOut: 3 }] };
+    const { rows } = buildLotRows(d, { kind: 'month', month: '2026-10' });
+    expect(rows.map((r) => r.label)).toEqual(['รวม']);
+    expect(rows[0].t).toMatchObject({ sent: 630, out: 3 });
+  });
   it('year view compares with previous year summary (2025: 8938 / 42)', () => {
     const d = { ...empty, prevYear: { lot: [], summaries: [], yearSummary: { month: '2025', per: 124, lotSent: 8938, lotOut: 42 } } };
     const { prevYearTotal } = buildLotRows(d, { kind: 'year', year: 2026 });

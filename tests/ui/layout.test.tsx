@@ -41,7 +41,21 @@ describe('FilterBar', () => {
     fireEvent.change(screen.getByLabelText('จาก'), { target: { value: '2026-11-20' } });
     fireEvent.change(screen.getByLabelText('ถึง'), { target: { value: '2026-11-10' } });
     expect(screen.getByRole('alert')).toHaveTextContent('วันที่เริ่มต้องไม่เกินวันที่สิ้นสุด');
-    expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'range' }));
+    expect(onChange).not.toHaveBeenCalledWith({ kind: 'range', from: '2026-11-20', to: '2026-11-10' });
+  });
+  it('choosing a date range starts from the month on screen', () => {
+    const onChange = vi.fn();
+    render(<FilterBar value={{ kind: 'month', month: '2026-02' }} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'ช่วงวันที่' }));
+    expect(onChange).toHaveBeenCalledWith({ kind: 'range', from: '2026-02-01', to: '2026-02-28' });
+    expect(screen.getByLabelText('จาก')).toHaveValue('2026-02-01');
+    expect(screen.getByLabelText('ถึง')).toHaveValue('2026-02-28');
+  });
+  it('shows the dates of a range that comes from the address bar', () => {
+    const { rerender } = render(<FilterBar value={{ kind: 'month', month: '2026-11' }} onChange={() => {}} />);
+    rerender(<FilterBar value={{ kind: 'range', from: '2026-10-20', to: '2026-11-10' }} onChange={() => {}} />);
+    expect(screen.getByLabelText('จาก')).toHaveValue('2026-10-20');
+    expect(screen.getByLabelText('ถึง')).toHaveValue('2026-11-10');
   });
   it('switching month emits a month period', () => {
     const onChange = vi.fn();

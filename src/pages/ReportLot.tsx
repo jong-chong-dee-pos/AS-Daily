@@ -34,7 +34,7 @@ export function buildLotRows(d: ReportData, p: Period): { rows: Row[]; prevYearT
   const rows: Row[] = days.map((day) => ({
     label: fmtDate(day), t: lotTotals(d.lot.filter((e) => e.date === day)), target: targetFor(d.targets, monthOf(day)).lotOutTarget,
   }));
-  if (p.kind === 'month') {
+  if (p.kind === 'month' && rows.length) {
     const w = lotByWeek(d.lot, p.month);
     ([1, 2, 3, 4] as const).forEach((k) => rows.push({ label: `W${k}`, t: w[k], target: targetFor(d.targets, p.month).lotOutTarget, strong: true }));
   }
@@ -52,6 +52,8 @@ export function ReportLot() {
   const yd = yearData.data;
   const navigate = useNavigate();
   const chartMonth = yd ? lotChartMonth(period, yd.lot) : null;
+  const chartHasDays = !!chartMonth && !!yd?.lot.some((e) => e.date.startsWith(chartMonth));
+  const monthSummary = data && period.kind === 'month' && !data.lot.length ? data.summaries.find((s) => s.month === period.month) : undefined;
   const built = useMemo(() => (data ? buildLotRows(data, period) : null), [data, period]);
   const head = ['ช่วง', 'Lot ส่งตรวจ', 'Lot out Patrol', 'Lot out FG', 'Lot out รวม', 'Lot out %', 'เป้า ≤%'];
   const exportRows = built ? [[`Lot out ${periodName(period)}`], head,
@@ -69,7 +71,13 @@ export function ReportLot() {
           {yd && (
             <>
               <div className="charts single"><SentFgChart d={yd} year={year} onPick={(m) => navigate(`/report/lot/fg?m=${m}`)} /></div>
-              {chartMonth && (
+              {monthSummary && (
+                <div className="notice" role="note">
+                  <b>{fmtMonth(period.kind === 'month' ? period.month : '')} นำเข้าจาก Excel: ส่งตรวจ {monthSummary.lotSent ?? 0} Lot · Lot out {monthSummary.lotOut ?? 0} Lot</b>
+                  <span>ไฟล์ Excel มีเฉพาะยอดรวมรายเดือน จึงไม่มีกราฟรายสัปดาห์และรายวันของเดือนนี้</span>
+                </div>
+              )}
+              {chartMonth && chartHasDays && (
                 <>
                   <h2 className="section-title">รายสัปดาห์และรายวัน <small>{fmtMonth(chartMonth)}</small></h2>
                   <div className="charts">
@@ -100,7 +108,7 @@ export function ReportLot() {
               </tbody>
             </table>
           </div>
-          {built.rows.length <= 1 && <p className="empty">ไม่มีข้อมูลในช่วงนี้</p>}
+          {built.rows.every((r) => !r.t.sent) && <p className="empty">ไม่มีข้อมูลในช่วงนี้</p>}
           {built.prevYearTotal && (
             <p className="muted">ปีก่อนหน้า: ส่งตรวจ {built.prevYearTotal.sent} ครั้ง · Lot out {built.prevYearTotal.out} ครั้ง · {fmtNum(built.prevYearTotal.pct, 2)}%</p>
           )}

@@ -9,7 +9,7 @@ import { FilterBar } from '../ui/FilterBar';
 import { usePeriod } from '../ui/usePeriod';
 import { fmtDate, fmtMonth, fmtNum, THAI_MONTHS } from '../ui/format';
 import { ExportButtons } from '../ui/ExportButtons';
-import { PerMonthChart, yearOf } from '../ui/ExcelCharts';
+import { PerMonthChart, PerRankChart, yearOf, type RankRow } from '../ui/ExcelCharts';
 
 type Tab = 'line' | 'setter' | 'person';
 
@@ -19,22 +19,36 @@ export function ReportPer() {
   const [tab, setTab] = useState<Tab>('line');
   const yearData = useReportData({ kind: 'year', year: yearOf(period) });
   const table = useMemo(() => (data ? buildTable(data, period, tab) : null), [data, period, tab]);
+  const ranking = useMemo(() => (data ? perRanking(data, period, tab) : []), [data, period, tab]);
+  const imported = data ? importedNote(data, period) : null;
   return (
     <section>
       <div className="page-head"><h1>% PER</h1><span className="muted">ประสิทธิภาพการประกอบ</span></div>
       <FilterBar value={period} onChange={setPeriod}>
         {table && <ExportButtons name={`PER_${periodName(period)}`} sheets={[{ name: '% PER', rows: table.exportRows }]} target="report-per" />}
       </FilterBar>
-      <div className="tabs seg" role="tablist" aria-label="มุมมอง">
-        {([['line', 'รายไลน์'], ['setter', 'ราย Setter'], ['person', 'รายคน']] as const).map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l}</button>
-        ))}
-      </div>
       {error && <p className="error">{error}</p>}
       {!data && !error && <p className="empty">กำลังโหลด…</p>}
-      {table && (
+      {table && data && (
         <div id="report-per">
           {yearData.data && <div className="charts single"><PerMonthChart d={yearData.data} year={yearOf(period)} /></div>}
+          <div className="tabs seg tabs-view" role="tablist" aria-label="มุมมอง">
+            {TABS.map(([k, l]) => (
+              <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l}</button>
+            ))}
+          </div>
+          {imported && (
+            <div className="notice" role="note">
+              <b>{imported.text}</b>
+              <span>{imported.detail}</span>
+            </div>
+          )}
+          {ranking.length > 0 && (
+            <div className="charts single">
+              <PerRankChart title={`% PER เฉลี่ย${TABS.find(([k]) => k === tab)![1]}`} sub={periodTitle(period)} rows={ranking} target={periodPerTarget(data, period)} />
+            </div>
+          )}
+          {!(period.kind === 'month' && imported) && <>
           <h2 className="section-title">ตาราง % PER <small>{periodName(period)}</small></h2>
           <div className="tablewrap tall">
             <table className="pertable">
@@ -87,10 +101,61 @@ export function ReportPer() {
             <span>ค่ารวมเฉลี่ยจากไลน์ที่ตั้งให้นับเข้าค่ารวม</span>
           </p>
           {table.body.length === 0 && <p className="empty">ไม่มีข้อมูลในช่วงนี้</p>}
+          </>}
         </div>
       )}
     </section>
   );
+}
+
+const TABS = [['line', 'รายไลน์'], ['setter', 'ราย Setter'], ['person', 'รายคน']] as const;
+
+const periodTitle = (p: Period) =>
+  p.kind === 'month' ? fmtMonth(p.month) : p.kind === 'year' ? `ปี ${p.year}` : `${fmtDate(p.from)} – ${fmtDate(p.to)}`;
+
+/** Months of the period that have daily % PER entries (all months when none do). */
+const monthsWithData = (d: ReportData, p: Period) => {
+  const all = monthsIn(p);
+  const have = all.filter((m) => d.per.some((e) => e.date.startsWith(m)));
+  return have.length ? have : all;
+};
+
+/** The target a period average is compared with: the mean target of the months that have data. */
+export function periodPerTarget(d: ReportData, p: Period): number {
+  return mean(monthsWithData(d, p).map((m) => targetFor(d.targets, m).perTarget)) ?? 125;
+}
+
+/** Period average per line, Setter or person, for the comparison chart. */
+export function perRanking(d: ReportData, _p: Period, tab: Tab): RankRow[] {
+  const lines = d.lines.filter((l) => l.active || d.per.some((e) => e.lineId === l.id));
+  const rows: { name: string; per: number | null; days?: number }[] =
+    tab === 'line' ? lines.map((l) => ({ name: l.code, per: lineAverage(d.per, l.id) }))
+      : tab === 'setter' ? [...new Set(lines.map((l) => l.setter))].map((s) => ({ name: s || 'ยังไม่ได้กำหนด', per: setterAverage(d.per, lines, s) }))
+        : [...new Set(d.per.flatMap((e) => e.workerIds))].map((id) => ({
+          name: d.workers.find((w) => w.id === id)?.name ?? id,
+          per: personAverage(d.per, id),
+          days: d.per.filter((e) => e.workerIds.includes(id)).length,
+        }));
+  return rows.filter((r): r is RankRow => r.per !== null);
+}
+
+/**
+ * Months imported from Excel carry only the monthly overall % PER, not lines or people.
+ * Says so, with the imported value, instead of leaving an unexplained empty table.
+ */
+export function importedNote(d: ReportData, p: Period): { text: string; detail: string } | null {
+  const summarized = monthsIn(p).filter((m) => !d.per.some((e) => e.date.startsWith(m)) && d.summaries.some((s) => s.month === m && s.per !== null && s.per !== undefined));
+  if (!summarized.length) return null;
+  if (p.kind === 'month') {
+    const v = d.summaries.find((s) => s.month === p.month)?.per ?? null;
+    return { text: `${fmtMonth(p.month)} นำเข้าจาก Excel: % PER เฉลี่ยทั้งเดือน ${fmtNum(v)}%`,
+      detail: 'ไฟล์ Excel มีเฉพาะค่ารวมรายเดือน จึงไม่มีตัวเลขแยกรายไลน์ ราย Setter หรือรายคนของเดือนนี้' };
+  }
+  const names = summarized.map((m) => THAI_MONTHS[Number(m.slice(5)) - 1]).join(', ');
+  return { text: `เดือนที่นำเข้าจาก Excel (${names}) มีเฉพาะค่ารวมรายเดือน`,
+    detail: p.kind === 'range'
+      ? 'ช่วงวันที่นับเฉพาะวันที่กรอกข้อมูลรายวันในระบบ ค่ารวมของเดือนที่นำเข้าดูได้ในกราฟรายเดือนด้านบน'
+      : 'ค่ารวมของเดือนเหล่านี้แสดงในแถว "รวมทุกไลน์" และกราฟรายเดือน ส่วนรายไลน์ ราย Setter และรายคนเริ่มมีตั้งแต่เดือนที่กรอกข้อมูลรายวัน' };
 }
 
 export const periodName = (p: Period) =>
@@ -110,8 +175,8 @@ export function buildTable(d: ReportData, p: Period, tab: Tab): Built {
   const inCol = (c: string) => d.per.filter((e) => (byYear ? e.date.startsWith(c) : e.date === c));
   const tgt = (c: string) => targetFor(d.targets, byYear ? c : monthOf(c)).perTarget;
   const cell = (v: number | null, c?: string): Cell => ({ text: fmtNum(v), raw: v, below: v !== null && c !== undefined && v < tgt(c) });
-  const periodTarget = (v: number | null): boolean =>
-    v !== null && v < (mean(monthsIn(p).map((m) => targetFor(d.targets, m).perTarget)) ?? 125);
+  const pTarget = periodPerTarget(d, p);
+  const periodTarget = (v: number | null): boolean => v !== null && v < pTarget;
   const workerName = (id: string) => d.workers.find((w) => w.id === id)?.name ?? id;
   const lines = d.lines.filter((l) => l.active || d.per.some((e) => e.lineId === l.id));
 

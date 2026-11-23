@@ -16,6 +16,9 @@ export function FilterBar({ value, onChange, children }: Props) {
   const [from, setFrom] = useState(value.kind === 'range' ? value.from : '');
   const [to, setTo] = useState(value.kind === 'range' ? value.to : '');
   useEffect(() => setKind(value.kind), [value.kind]);
+  const vFrom = value.kind === 'range' ? value.from : '';
+  const vTo = value.kind === 'range' ? value.to : '';
+  useEffect(() => { if (vFrom && vTo) { setFrom(vFrom); setTo(vTo); } }, [vFrom, vTo]);
 
   const year = value.kind === 'year' ? value.year
     : value.kind === 'month' ? Number(value.month.slice(0, 4)) : Number(value.from.slice(0, 4));
@@ -26,6 +29,12 @@ export function FilterBar({ value, onChange, children }: Props) {
     setKind(k);
     if (k === 'year') onChange({ kind: 'year', year });
     if (k === 'month') onChange({ kind: 'month', month: `${year}-${String(month).padStart(2, '0')}` });
+    if (k === 'range' && value.kind !== 'range') {
+      // Start from the month on screen (or January of the year) so the dates are never blank.
+      const m = `${year}-${String(month).padStart(2, '0')}`;
+      const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+      applyRange(`${m}-01`, `${m}-${String(last).padStart(2, '0')}`);
+    }
   };
   const applyRange = (f: string, t: string) => {
     setFrom(f); setTo(t);

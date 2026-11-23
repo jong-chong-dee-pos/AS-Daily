@@ -30,4 +30,11 @@ describe('Lot out FG', () => {
     expect(screen.getByTestId('fg-count')).toHaveTextContent('2');
     expect(screen.getByText('ยังขาดรายละเอียด 1 รายการ')).toBeInTheDocument();
   });
+  it('an imported month shows its Lot out from the summary', async () => {
+    const repo = fakeRepo({ summaries: [{ month: '2026-10', per: 134, lotSent: 630, lotOut: 3 }] });
+    render(<MemoryRouter initialEntries={['/report/lot/fg?m=2026-10']}><RepoContext.Provider value={repo}><LotFgDetail /></RepoContext.Provider></MemoryRouter>);
+    await waitFor(() => expect(screen.getByTestId('fg-sent')).toHaveTextContent('630'));
+    expect(screen.getByTestId('fg-count')).toHaveTextContent('3');
+    expect(screen.getByText(/นำเข้าจาก Excel/)).toBeInTheDocument();
+  });
 });

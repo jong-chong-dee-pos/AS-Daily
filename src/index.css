@@ -265,4 +265,15 @@ tr.item-bottom td { padding-top: 4px; }
 /* % PER grid: many day columns, keep them narrower but still airy */
 .pertable th, .pertable td { padding: 10px 9px; }
 .pertable th.sticky-col, .pertable td.sticky-col { padding-left: 16px; }
+.pertable td.sticky-col { white-space: nowrap; }
 .pertable thead tr:first-child th:not([rowspan]) { height: 40px; }
+
+/* View tabs that switch the chart and table under them. */
+.tabs-view { margin: 26px 0 16px; }
+.tabs-view button { padding: 7px 22px; min-height: 40px; font-size: 1rem; }
+
+/* Explains why a section holds less detail than usual (imported months, nothing entered yet). */
+.notice { display: flex; flex-direction: column; gap: 4px; padding: 14px 18px; margin: 0 0 18px;
+  border: 1px solid #ffd79a; border-left: 4px solid var(--warn, #ff9f1a); border-radius: 10px; background: #fff8ec; color: #5b4300; }
+.notice b { font-weight: 700; }
+.notice a { color: var(--accent); font-weight: 600; }

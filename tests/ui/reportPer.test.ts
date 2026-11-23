@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTable } from '../../src/pages/ReportPer';
+import { buildTable, importedNote, periodPerTarget, perRanking } from '../../src/pages/ReportPer';
 import type { ReportData } from '../../src/data/useReportData';
 import { L } from './fakeRepo';
 
@@ -36,5 +36,26 @@ describe('ReportPer table', () => {
     const w1 = t.body.find((r) => r.cells[0].text === 'สมชาย')!;
     expect(w1.cells[1].text).toBe('3');
     expect(w1.cells.at(-1)!.text).toBe('130.0');
+  });
+});
+
+describe('ReportPer views', () => {
+  const nov = { kind: 'month', month: '2026-11' } as const;
+  it('each tab gives its own comparison rows', () => {
+    expect(perRanking(base, nov, 'line').map((r) => [r.name, r.per])).toEqual([['SL1', 120], ['SL3', 150]]);
+    expect(perRanking(base, nov, 'setter').map((r) => [r.name, r.per])).toEqual([['A', 120], ['B', 150]]);
+    expect(perRanking(base, nov, 'person').map((r) => [r.name, r.per, r.days])).toEqual([['สมชาย', 130, 3], ['สมหญิง', 150, 1]]);
+  });
+  it('a period average is compared with the targets of months that have data', () => {
+    const d = { ...base, targets: [{ month: '2026-01', perTarget: 110, lotOutTarget: 0.5 }, { month: '2026-11', perTarget: 125, lotOutTarget: 0.5 }] };
+    expect(periodPerTarget(d, { kind: 'year', year: 2026 })).toBe(125);
+    const t = buildTable(d, { kind: 'year', year: 2026 }, 'setter');
+    expect(t.body.find((r) => r.cells[0].text === 'A')!.cells.at(-1)!.below).toBe(true); // 120 < 125
+  });
+  it('an imported month explains that only the monthly total exists', () => {
+    const n = importedNote(base, { kind: 'month', month: '2026-10' })!;
+    expect(n.text).toContain('134.0');
+    expect(importedNote(base, nov)).toBeNull();
+    expect(importedNote(base, { kind: 'year', year: 2026 })!.text).toContain('ต.ค.');
   });
 });
