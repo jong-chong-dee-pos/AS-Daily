@@ -35,6 +35,7 @@ export function ReportPer() {
       {table && (
         <div id="report-per">
           {yearData.data && <div className="charts single"><PerMonthChart d={yearData.data} year={yearOf(period)} /></div>}
+          <h2 className="section-title">ตาราง % PER <small>{periodName(period)}</small></h2>
           <div className="tablewrap tall">
             <table className="pertable">
               <thead>
@@ -46,7 +47,7 @@ export function ReportPer() {
                 <tr>
                   {table.head.slice(table.colStart, -1).map((h, j) => {
                     const i = j + table.colStart;
-                    return <th key={i} className={`num ${table.weekend[i] ? 'wk' : ''}`} style={{ top: 27 }}>{h}{table.headSub[i] && <small>{table.headSub[i]}</small>}</th>;
+                    return <th key={i} className={`num ${table.weekend[i] ? 'wk' : ''}`} style={{ top: 40 }}>{h}{table.headSub[i] && <small>{table.headSub[i]}</small>}</th>;
                   })}
                 </tr>
               </thead>

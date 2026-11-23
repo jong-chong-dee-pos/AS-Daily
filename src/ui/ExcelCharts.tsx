@@ -76,7 +76,7 @@ export const C = {
 /** Kept for older imports. */
 export const XL = { green: C.varUp, cyan: C.lot, red: C.varDown, orange: C.target, blue: C.lotDay, target: C.target };
 
-const AXIS = { fill: '#7b7896', fontSize: 11 };
+const AXIS = { fill: '#6f6c8c', fontSize: 12 };
 
 /** "AVG-26" is drawn on two lines so narrow columns never collide. */
 function XTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) {
@@ -85,8 +85,8 @@ function XTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: s
   // Year columns (2026) read as two short lines: ปี / 26.
   const [a, b] = /^\d{4}$/.test(v) ? ['ปี', v.slice(2)] : v.split('-');
   return (
-    <text x={x} y={y + 12} textAnchor="middle" fontSize={11} fill={b ? '#4b4870' : AXIS.fill} fontWeight={b ? 600 : 400}>
-      <tspan x={x}>{a}</tspan>{b && <tspan x={x} dy={12}>{b}</tspan>}
+    <text x={x} y={y + 12} textAnchor="middle" fontSize={12} fill={b ? '#4b4870' : AXIS.fill} fontWeight={b ? 600 : 400}>
+      <tspan x={x}>{a}</tspan>{b && <tspan x={x} dy={14}>{b}</tspan>}
     </text>
   );
 }
@@ -104,7 +104,7 @@ function BarValue({ x = 0, y = 0, width = 0, height = 0, value, fmt, vertical, c
     const ty = neg ? bottom + 4 : top - 4;
     return <text x={cx} y={ty} transform={`rotate(-90 ${cx} ${ty})`} textAnchor={neg ? 'end' : 'start'} dominantBaseline="central" fontSize={10} fontWeight={weight} fill={fill}>{text}</text>;
   }
-  return <text x={cx} y={neg ? bottom + 12 : top - 5} textAnchor="middle" fontSize={11} fontWeight={weight} fill={fill}>{text}</text>;
+  return <text x={cx} y={neg ? bottom + 14 : top - 6} textAnchor="middle" fontSize={12} fontWeight={weight} fill={fill}>{text}</text>;
 }
 
 const range = (vals: (number | null | string)[], digits: number) => {
@@ -136,9 +136,9 @@ export function ExcelChart({ title, sub, data, bars, line, height = 300, unit = 
         </span>
       </figcaption>
       <ResponsiveContainer width="100%" height={height}>
-        <ComposedChart data={data} margin={{ top: compact ? 46 : 22, right: 8, left: 0, bottom: 0 }} barGap={3} barCategoryGap={compact ? '18%' : '22%'}>
+        <ComposedChart data={data} margin={{ top: compact ? 54 : 26, right: 8, left: 0, bottom: 0 }} barGap={2} barCategoryGap={compact ? "12%" : "22%"}>
           <CartesianGrid stroke="#eeedf6" strokeDasharray="4 4" vertical={false} />
-          <XAxis dataKey="name" tick={<XTick />} height={36} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={0} />
+          <XAxis dataKey="name" tick={<XTick />} height={40} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={dense ? 1 : 0} />
           <YAxis tick={AXIS} axisLine={false} tickLine={false} width={compact ? 52 : 40}
             domain={compact ? [(lo: number) => (lo < 0 ? lo * 2.2 : 0), 'auto'] : [0, 'auto']}
             tickFormatter={(v: number) => (compact ? `${fmtNum(v / 1000, 0)}k` : fmtNum(v, bars[0].digits > 0 && Math.abs(v) < 10 ? 1 : 0))} />
@@ -152,7 +152,7 @@ export function ExcelChart({ title, sub, data, bars, line, height = 300, unit = 
                 const fill = b.key === 'variance' && typeof v === 'number' ? (v < 0 ? C.varDown : C.varUp) : soft && i >= soft.from ? soft.color : b.color;
                 return <Cell key={i} fill={fill} />;
               })}
-              <LabelList dataKey={b.key} content={(props) => (
+              <LabelList dataKey={b.key} content={(props) => (dense && !(props as LabelProps).value ? null :
                 <BarValue {...(props as LabelProps)} fmt={fmtBar(b.digits)} vertical={compact}
                   color={b.key === 'variance' ? (Number((props as LabelProps).value) < 0 ? C.varDown : '#0f8a52') : '#2a2750'} />
               )} />
@@ -253,7 +253,7 @@ export function SentFgChart({ d, year, onPick, height = 380 }: { d: ReportData; 
         <ComposedChart data={data} margin={{ top: 28, right: 4, left: 0, bottom: 0 }} barGap={3} barCategoryGap="22%"
           onClick={(e: { activeTooltipIndex?: number } | null) => pick(e?.activeTooltipIndex)}>
           <CartesianGrid stroke="#eeedf6" strokeDasharray="4 4" vertical={false} />
-          <XAxis dataKey="name" tick={<XTick />} height={36} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={0} />
+          <XAxis dataKey="name" tick={<XTick />} height={40} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={0} />
           <YAxis yAxisId="l" tick={AXIS} axisLine={false} tickLine={false} width={44} />
           <YAxis yAxisId="r" orientation="right" tick={{ ...AXIS, fill: C.act }} axisLine={false} tickLine={false} width={44}
             domain={[0, Math.ceil(pctMax * 1.5 * 10) / 10]} tickFormatter={(v: number) => `${fmtNum(v, 1)}%`} />

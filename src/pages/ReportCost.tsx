@@ -51,9 +51,9 @@ export function ReportCost() {
             const tot = costTotal(rows, cat);
             return (
               <div key={cat}>
-                <h2>{COST_LABEL[cat]}</h2>
+                <h2 className="section-title">{COST_LABEL[cat]} <small>Variance รวม <b className={tot.variance !== null && tot.variance < 0 ? 'neg' : 'met'}>{fmtBaht(tot.variance)}</b></small></h2>
                 {yd && <div className="charts single"><CostChart d={yd} year={year} cat={cat} label={`Process (${COST_LABEL[cat]})`} /></div>}
-                <div className="tablewrap">
+                <div className="tablewrap" style={{ marginBottom: 12 }}>
                   <table>
                     <thead><tr><th>เดือน</th><th className="num">Standard (บาท)</th><th className="num">Actual (บาท)</th><th className="num">Variance</th><th>หมายเหตุ</th></tr></thead>
                     <tbody>

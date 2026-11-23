@@ -86,23 +86,26 @@ export function Dashboard() {
               <div className="target">{data?.labels?.lot ?? 'เป้า'} ≤ {fmtNum(s.lotTarget, 2)}% {lotOk !== null && <span className={`pill ${lotOk ? 'ok' : 'no'}`}>{lotOk ? 'ถึงเป้า' : 'ไม่ถึงเป้า'}</span>} <span>{s.lot.out} จาก {fmtNum(s.lot.sent, 0)} Lot</span></div>
               <Meter value={s.lot.pct} target={s.lotTarget} max={Math.max(s.lotTarget * 3, s.lot.pct ?? 0)} ok={lotOk} />
             </div>
+          </div>
+          <div className="cards cost">
             {s.cost.map((c) => (
               <div className="card c-cost" key={c.cat}>
                 <div className="card-head"><span className="card-icon"><Icon name="coin" /></span><span className="label">Variance {COST_LABEL[c.cat]}</span></div>
                 <div className={`value sm ${c.variance !== null && c.variance < 0 ? 'neg' : 'met'}`} data-testid={`kpi-var-${c.cat}`}>{c.variance !== null && c.variance > 0 ? '+' : ''}{fmtBaht(c.variance)}</div>
-                <div className="target">Std <b>{fmtBaht(c.standard)}</b> Act <b>{fmtBaht(c.actual)}</b></div>
+                <div className="target"><span>Standard <b>{fmtBaht(c.standard)}</b></span><span>Actual <b>{fmtBaht(c.actual)}</b></span></div>
               </div>
             ))}
           </div>
           {yd && (
             <>
-              <div className="charts wide-left">
-                <PerMonthChart d={yd} year={year} height={300} />
-                <LotMonthChart d={yd} year={year} height={300} />
-              </div>
-              <h2 className="section-title">ต้นทุนรายเดือน {year} (Standard, Actual, Variance)</h2>
+              <h2 className="section-title">% PER และ Lot out รายเดือน <small>ปี {year}</small></h2>
               <div className="charts">
-                {COST_CATEGORIES.map((cat) => <CostChart key={cat} d={yd} year={year} cat={cat} label={COST_LABEL[cat]} height={320} />)}
+                <PerMonthChart d={yd} year={year} height={320} />
+                <LotMonthChart d={yd} year={year} height={320} />
+              </div>
+              <h2 className="section-title">ต้นทุนรายเดือน <small>Standard, Actual, Variance ปี {year}</small></h2>
+              <div className="charts">
+                {COST_CATEGORIES.map((cat) => <CostChart key={cat} d={yd} year={year} cat={cat} label={COST_LABEL[cat]} height={360} />)}
               </div>
             </>
           )}

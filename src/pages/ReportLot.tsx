@@ -65,12 +65,20 @@ export function ReportLot() {
       {built && (
         <div id="report-lot">
           {yd && (
-            <div className="charts">
-              <div className="wide"><SentFgChart d={yd} year={year} onPick={(m) => navigate(`/report/lot/fg?m=${m}`)} /></div>
-              {chartMonth && <LotWeekChart lot={yd.lot} month={chartMonth} targets={yd.targets} label={fmtMonth(chartMonth)} />}
-              {chartMonth && <div className="wide"><LotDailyChart lot={yd.lot} month={chartMonth} targets={yd.targets} label={fmtMonth(chartMonth)} /></div>}
-            </div>
+            <>
+              <div className="charts single"><SentFgChart d={yd} year={year} onPick={(m) => navigate(`/report/lot/fg?m=${m}`)} /></div>
+              {chartMonth && (
+                <>
+                  <h2 className="section-title">รายสัปดาห์และรายวัน <small>{fmtMonth(chartMonth)}</small></h2>
+                  <div className="charts">
+                    <LotWeekChart lot={yd.lot} month={chartMonth} targets={yd.targets} label={fmtMonth(chartMonth)} />
+                    <LotDailyChart lot={yd.lot} month={chartMonth} targets={yd.targets} label={fmtMonth(chartMonth)} />
+                  </div>
+                </>
+              )}
+            </>
           )}
+          <h2 className="section-title">ตารางสรุป <small>{periodName(period)}</small></h2>
           <div className="tablewrap">
             <table>
               <thead><tr>{head.map((h, i) => <th key={h} className={i ? 'num' : ''}>{h}</th>)}</tr></thead>
