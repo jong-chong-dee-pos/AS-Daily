@@ -10,14 +10,21 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:rules": "firebase emulators:exec --only firestore,auth --project demo-as-daily 'vitest run --config vitest.emulator.config.ts'",
-    "emulators": "firebase emulators:start --only firestore,auth --project demo-as-daily"
+    "emulators": "firebase emulators:start --only firestore,auth --project demo-as-daily",
+    "import:parse": "python3 scripts/parse_xlsx.py",
+    "import:load": "node scripts/load-firestore.mjs",
+    "build:artifact": "tsc -b && vite build --config vite.artifact.config.ts && node scripts/inline-html.mjs"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
+    "exceljs": "^4.4.0",
     "firebase": "^10.14.1",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0"
+    "react-router-dom": "^6.28.0",
+    "recharts": "^2.13.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
@@ -32,6 +39,7 @@
     "eslint": "^9.13.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",
+    "firebase-admin": "^12.7.0",
     "firebase-tools": "^13.29.1",
     "globals": "^15.11.0",
     "jsdom": "^25.0.1",

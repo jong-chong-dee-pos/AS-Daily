@@ -25,3 +25,14 @@ dist-ssr
 
 .env.local
 *.log
+
+# import data and credentials
+*.xlsx
+import.json
+service-account*.json
+__pycache__
+dist-artifact
+
+# deploy credentials and exported data
+sa.json
+*export*.json

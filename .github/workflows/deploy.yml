@@ -1,0 +1,45 @@
+name: Deploy to Firebase
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/sa.json
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Firebase is connected
+        id: ready
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then
+            echo "::notice::FIREBASE_SERVICE_ACCOUNT secret missing, deploy skipped"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            printf '%s' "$SA" > sa.json
+            # The project id is read from the key file, so nothing else needs configuring.
+            echo "project=$(node -p "require('./sa.json').project_id")" >> "$GITHUB_OUTPUT"
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.ready.outputs.ok == 'true'
+        uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - if: steps.ready.outputs.ok == 'true'
+        run: npm ci
+      - if: steps.ready.outputs.ok == 'true'
+        run: npx vitest run
+      - if: steps.ready.outputs.ok == 'true'
+        run: npm run build
+      - if: steps.ready.outputs.ok == 'true'
+        run: npx firebase deploy --only firestore:rules,hosting --project "${{ steps.ready.outputs.project }}" --non-interactive
+      - if: steps.ready.outputs.ok == 'true'
+        run: node scripts/bootstrap-admin.mjs "${{ steps.ready.outputs.project }}"
+      - if: always()
+        run: rm -f sa.json

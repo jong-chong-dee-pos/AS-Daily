@@ -15,15 +15,19 @@ service cloud.firestore {
       allow read: if hasRole();
     }
 
-    // Daily and monthly data: editors and admins, stamped with their own uid.
-    match /perDaily/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
-    match /lotDaily/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
+    // Data entry, one document per month (perMonth/YYYY-MM …), stamped with the writer's uid.
+    match /perMonth/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
+    match /lotMonth/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
+    match /absenceMonth/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
     match /costMonthly/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
+    match /images/{id} { allow create, update: if isEditor() && stamped() && request.resource.data.data.size() < 900000; allow delete: if isEditor(); }
 
     // Settings and accounts: admins only.
     match /lines/{id} { allow write: if isAdmin(); }
     match /workers/{id} { allow write: if isAdmin(); }
     match /targets/{id} { allow write: if isAdmin(); }
+    match /setters/{id} { allow write: if isAdmin(); }
+    match /settings/{id} { allow write: if isAdmin(); }
     match /monthlySummary/{id} { allow write: if isAdmin(); }
     match /users/{uid} { allow write: if isAdmin(); }
   }
