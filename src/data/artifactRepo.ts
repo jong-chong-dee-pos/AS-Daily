@@ -15,6 +15,7 @@ export interface ArtifactDb {
 type PerMonthDoc = { entries?: Record<string, Omit<PerEntry, 'date' | 'lineId'>> };
 type LotMonthDoc = { days?: Record<string, Omit<LotEntry, 'date'>> };
 type AbsenceMonthDoc = { days?: Record<string, Absence[]> };
+export interface WorkerRef { count: number; first: string; last: string; lineIds?: string[] }
 
 /** YYYY-MM keys from `from` to `to` inclusive (both YYYY-MM-DD). */
 export function monthKeys(from: string, to: string): string[] {
@@ -99,6 +100,58 @@ export function makeArtifactRepo(db: ArtifactDb, uploadImage?: (f: Blob) => Prom
       const days = { ...(await read<AbsenceMonthDoc>(path)).days };
       if (list.length) days[date] = list; else delete days[date];
       await db.doc(path).set({ days, ...stamp() });
+    },
+    /**
+     * Every worker id that records point at (daily % PER rows, absences, line defaults),
+     * with how many records and the first/last date. Used to find names that no longer exist.
+     */
+    async workerRefs(): Promise<Record<string, WorkerRef>> {
+      const out: Record<string, WorkerRef> = {};
+      const add = (id: string, date?: string, lineId?: string) => {
+        if (!id) return;
+        const r = (out[id] ??= { count: 0, first: '', last: '', lineIds: [] });
+        r.count++;
+        if (lineId && !r.lineIds!.includes(lineId)) r.lineIds!.push(lineId);
+        if (date) { if (!r.first || date < r.first) r.first = date; if (date > r.last) r.last = date; }
+      };
+      const [per, abs, lines] = await Promise.all([db.collection('perMonth').get(), db.collection('absenceMonth').get(), repo.listLines()]);
+      for (const d of per.docs) for (const [k, v] of Object.entries((d.data() as PerMonthDoc | undefined)?.entries ?? {})) for (const id of v.workerIds ?? []) add(id, k.slice(0, 10), k.slice(11));
+      for (const d of abs.docs) for (const [date, list] of Object.entries((d.data() as AbsenceMonthDoc | undefined)?.days ?? {})) for (const a of list) add(a.workerId, date);
+      for (const l of lines) for (const id of l.defaultWorkerIds) add(id, undefined, l.id);
+      return out;
+    },
+    /**
+     * Points every record of worker `from` at worker `to`, or removes `from` from them
+     * when `to` is null. Returns how many documents were rewritten.
+     */
+    async replaceWorker(from: string, to: string | null): Promise<number> {
+      const swap = (ids: string[]) => [...new Set(ids.flatMap((id) => (id === from ? (to ? [to] : []) : [id])))];
+      let n = 0;
+      for (const d of (await db.collection('perMonth').get()).docs) {
+        const entries = { ...(d.data() as PerMonthDoc | undefined)?.entries };
+        let changed = false;
+        for (const [k, v] of Object.entries(entries)) {
+          if (!(v.workerIds ?? []).includes(from)) continue;
+          entries[k] = { ...v, workerIds: swap(v.workerIds) }; changed = true;
+        }
+        if (changed) { await db.doc(`perMonth/${d.id}`).set({ entries, ...stamp() }); n++; }
+      }
+      for (const d of (await db.collection('absenceMonth').get()).docs) {
+        const days = { ...(d.data() as AbsenceMonthDoc | undefined)?.days };
+        let changed = false;
+        for (const [date, list] of Object.entries(days)) {
+          if (!list.some((a) => a.workerId === from)) continue;
+          const next = to ? list.map((a) => (a.workerId === from ? { ...a, workerId: to } : a)) : list.filter((a) => a.workerId !== from);
+          if (next.length) days[date] = next; else delete days[date];
+          changed = true;
+        }
+        if (changed) { await db.doc(`absenceMonth/${d.id}`).set({ days, ...stamp() }); n++; }
+      }
+      for (const l of await repo.listLines()) {
+        if (!l.defaultWorkerIds.includes(from)) continue;
+        await repo.saveLine({ ...l, defaultWorkerIds: swap(l.defaultWorkerIds) }); n++;
+      }
+      return n;
     },
     saveSummary: (s: MonthlySummary) => db.doc(`monthlySummary/${s.month}`).set({ ...s, ...stamp() }),
     deleteSummary: (month: string) => db.doc(`monthlySummary/${month}`).delete(),

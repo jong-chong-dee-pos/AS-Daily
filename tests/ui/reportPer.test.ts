@@ -59,3 +59,14 @@ describe('ReportPer views', () => {
     expect(importedNote(base, { kind: 'year', year: 2026 })!.text).toContain('ต.ค.');
   });
 });
+
+describe('ReportPer names', () => {
+  it('shows the current name from Settings, never an internal code', () => {
+    const d = { ...base, per: [...base.per, { date: '2026-11-04', lineId: 'sl3', workerIds: ['w-gone', 'w2'], per: 120 }] };
+    const t = buildTable(d, { kind: 'month', month: '2026-11' }, 'line');
+    const sl3 = t.body.find((r) => r.cells[1].text === 'SL3')!;
+    expect(sl3.cells[2].text).toBe('ไม่พบชื่อ, สมหญิง');
+    expect(JSON.stringify(t.exportRows)).not.toContain('w-gone');
+    expect(perRanking(d, { kind: 'month', month: '2026-11' }, 'person').map((r) => r.name)).toContain('ไม่พบชื่อ');
+  });
+});

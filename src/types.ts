@@ -65,8 +65,23 @@ export interface LotItem {
   images: string[];
 }
 
-export type AbsenceReason = 'leave' | 'absent' | 'other';
-export const ABSENCE_LABEL: Record<AbsenceReason, string> = { leave: 'ลา', absent: 'ขาด', other: 'อื่นๆ' };
+/** 'leave' is the old "ลา" without a type, kept so earlier records still read. */
+export type AbsenceReason = 'sick' | 'personal' | 'vacation' | 'other' | 'absent' | 'leave';
+export const ABSENCE_LABEL: Record<AbsenceReason, string> = {
+  sick: 'ลาป่วย', personal: 'ลากิจ', vacation: 'ลาพักร้อน', other: 'อื่นๆ', absent: 'ขาดงาน', leave: 'ลา (ไม่ระบุประเภท)',
+};
+/** The types offered when entering a new absence, in this order. */
+export const ABSENCE_CHOICES: AbsenceReason[] = ['sick', 'personal', 'vacation', 'other', 'absent'];
+
+/** Reads an old "ลา" record by the type written in its note (ลาป่วย, ลากิจ, ลาพักร้อน). */
+export function normalizeAbsence(a: Absence): Absence {
+  if (a.reason !== 'leave') return a;
+  const n = a.note ?? '';
+  const reason: AbsenceReason = /ป่วย/.test(n) ? 'sick' : /กิจ/.test(n) ? 'personal' : /พักร้อน/.test(n) ? 'vacation' : 'leave';
+  if (reason === 'leave') return a;
+  const note = n.replace(/^\s*ลา(ป่วย|กิจ|พักร้อน)\s*[:,-]?\s*/, '').trim();
+  return { ...a, reason, note };
+}
 /** One worker who did not come to work on a day. */
 export interface Absence {
   workerId: string;

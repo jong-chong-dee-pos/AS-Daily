@@ -9,6 +9,7 @@ import { FilterBar } from '../ui/FilterBar';
 import { usePeriod } from '../ui/usePeriod';
 import { fmtDate, fmtMonth, fmtNum, THAI_MONTHS } from '../ui/format';
 import { ExportButtons } from '../ui/ExportButtons';
+import { workerLabel } from '../ui/labels';
 import { PerMonthChart, PerRankChart, yearOf, type RankRow } from '../ui/ExcelCharts';
 
 type Tab = 'line' | 'setter' | 'person';
@@ -132,7 +133,7 @@ export function perRanking(d: ReportData, _p: Period, tab: Tab): RankRow[] {
     tab === 'line' ? lines.map((l) => ({ name: l.code, per: lineAverage(d.per, l.id) }))
       : tab === 'setter' ? [...new Set(lines.map((l) => l.setter))].map((s) => ({ name: s || 'ยังไม่ได้กำหนด', per: setterAverage(d.per, lines, s) }))
         : [...new Set(d.per.flatMap((e) => e.workerIds))].map((id) => ({
-          name: d.workers.find((w) => w.id === id)?.name ?? id,
+          name: workerLabel(d.workers, id),
           per: personAverage(d.per, id),
           days: d.per.filter((e) => e.workerIds.includes(id)).length,
         }));
@@ -177,7 +178,7 @@ export function buildTable(d: ReportData, p: Period, tab: Tab): Built {
   const cell = (v: number | null, c?: string): Cell => ({ text: fmtNum(v), raw: v, below: v !== null && c !== undefined && v < tgt(c) });
   const pTarget = periodPerTarget(d, p);
   const periodTarget = (v: number | null): boolean => v !== null && v < pTarget;
-  const workerName = (id: string) => d.workers.find((w) => w.id === id)?.name ?? id;
+  const workerName = (id: string) => workerLabel(d.workers, id);
   const lines = d.lines.filter((l) => l.active || d.per.some((e) => e.lineId === l.id));
 
   let head: string[]; let body: Built['body']; let foot: Cell[] | undefined; let firstNum: number;

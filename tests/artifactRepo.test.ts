@@ -80,4 +80,26 @@ describe('artifact repo', () => {
     expect((await r.getMonthlySummaries('2026-01', '2026-12')).map((s) => s.month)).toEqual(['2026-01']);
     expect((await r.getMonthlySummaries('2025', '2025')).map((s) => s.per)).toEqual([124]);
   });
+
+  it('finds records of a deleted worker and hands them to another', async () => {
+    const { db, store } = memDb();
+    const r = makeArtifactRepo(db);
+    await r.saveLine({ id: 'sl1', code: 'SL1', order: 1, setter: 'A', defaultWorkerIds: ['w20'], includeInTotal: true, active: true });
+    await r.savePerDay('2026-11-02', [{ date: '2026-11-02', lineId: 'sl1', workerIds: ['w20', 'w19'], per: 120 }]);
+    await r.savePerDay('2026-12-01', [{ date: '2026-12-01', lineId: 'sl1', workerIds: ['w19', 'w20'], per: 110 }]);
+    await r.saveAbsenceDay('2026-11-03', [{ workerId: 'w20', reason: 'leave', note: '' }]);
+    expect((await r.workerRefs()).w20).toEqual({ count: 4, first: '2026-11-02', last: '2026-12-01', lineIds: ['sl1'] });
+
+    expect(await r.replaceWorker('w20', 'w19')).toBe(4); // 2 per months, 1 absence month, 1 line
+    const per = await r.getPerEntries('2026-11-01', '2026-12-31');
+    expect(per.map((e) => e.workerIds)).toEqual([['w19'], ['w19']]); // no duplicate
+    expect((await r.getAbsences('2026-11-01', '2026-11-30'))[0].list[0].workerId).toBe('w19');
+    expect((await r.listLines())[0].defaultWorkerIds).toEqual(['w19']);
+    expect((await r.workerRefs()).w20).toBeUndefined();
+
+    await r.replaceWorker('w19', null);
+    expect((await r.getPerEntries('2026-11-01', '2026-12-31')).map((e) => e.workerIds)).toEqual([[], []]);
+    expect(await r.getAbsences('2026-11-01', '2026-11-30')).toEqual([]);
+    expect(store.size).toBeGreaterThan(0);
+  });
 });
