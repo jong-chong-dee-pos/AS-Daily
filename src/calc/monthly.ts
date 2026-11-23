@@ -24,13 +24,14 @@ export function monthlyLot(months: string[], lot: LotEntry[], summaries: Monthly
   });
 }
 
-/** Lot sent and Lot out FG per month; fg is null where an imported month has no FG count yet. */
+/** Lot sent and Lot out FG per month; imported months use their Lot out count unless an FG count was entered. */
 export function monthlySentFg(months: string[], lot: LotEntry[], summaries: MonthlySummary[]): { month: string; sent: number | null; fg: number | null; detail: boolean }[] {
   return months.map((m) => {
     const e = lot.filter((l) => l.date.startsWith(m));
     if (e.length) { const t = lotTotals(e); return { month: m, sent: t.sent, fg: t.fg, detail: true }; }
     const s = summaries.find((x) => x.month === m);
-    return { month: m, sent: s?.lotSent ?? null, fg: s?.lotFg ?? null, detail: false };
+    // In Daily.xlsx the monthly "Lot out (ครั้ง)" row is the FG total (='Lot out (Daily)'!AG21), so it stands in for FG.
+    return { month: m, sent: s?.lotSent ?? null, fg: s?.lotFg ?? s?.lotOut ?? null, detail: false };
   });
 }
 

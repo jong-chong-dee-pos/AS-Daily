@@ -304,7 +304,7 @@ export function SummarySection() {
         { label: '% PER', className: 'num', render: (r, set) => <input aria-label={`% PER ${r.month}`} className={bad(r.per) ? 'invalid' : ''} value={r.per} onChange={(e) => set({ per: e.target.value })} /> },
         { label: 'Lot ส่งตรวจ', className: 'num', render: (r, set) => <input aria-label={`Lot ส่งตรวจ ${r.month}`} className={bad(r.sent) ? 'invalid' : ''} value={r.sent} onChange={(e) => set({ sent: e.target.value })} /> },
         { label: 'Lot out รวม', className: 'num', render: (r, set) => <input aria-label={`Lot out ${r.month}`} className={bad(r.out) ? 'invalid' : ''} value={r.out} onChange={(e) => set({ out: e.target.value })} /> },
-        { label: 'Lot out FG', className: 'num', render: (r, set) => <input aria-label={`Lot out FG ${r.month}`} placeholder="กรอก" className={bad(r.fg) ? 'invalid' : ''} value={r.fg} onChange={(e) => set({ fg: e.target.value })} /> },
+        { label: 'Lot out FG', className: 'num', render: (r, set) => <input aria-label={`Lot out FG ${r.month}`} placeholder={r.out || '—'} className={bad(r.fg) ? 'invalid' : ''} value={r.fg} onChange={(e) => set({ fg: e.target.value })} /> },
       ]}
     />
   );

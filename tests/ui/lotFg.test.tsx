@@ -8,11 +8,11 @@ import { monthlySentFg } from '../../src/calc/monthly';
 import { fakeRepo, L } from './fakeRepo';
 
 describe('Lot out FG', () => {
-  it('uses daily FG counts, else the hand-entered summary FG, else blank', () => {
+  it('uses daily FG counts, else the summary FG, else the imported monthly Lot out (FG in the Excel sheet)', () => {
     const r = monthlySentFg(['2026-09', '2026-10', '2026-11'],
       [{ date: '2026-11-03', sent: 20, patrol: 1, fg: 2 }],
       [{ month: '2026-09', per: null, lotSent: 500, lotOut: 3, lotFg: 1 }, { month: '2026-10', per: null, lotSent: 600, lotOut: 4 }]);
-    expect(r.map((x) => [x.sent, x.fg])).toEqual([[500, 1], [600, null], [20, 2]]);
+    expect(r.map((x) => [x.sent, x.fg])).toEqual([[500, 1], [600, 4], [20, 2]]);
   });
   it('lists only FG items of the month with line, product and problem', async () => {
     const repo = fakeRepo({
