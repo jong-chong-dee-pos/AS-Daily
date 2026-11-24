@@ -59,7 +59,7 @@ export function makeArtifactRepo(db: ArtifactDb, uploadImage?: (f: Blob) => Prom
       const docs = await Promise.all(monthKeys(from, to).map((m) => read<PerMonthDoc>(`perMonth/${m}`)));
       return docs.flatMap((d) => Object.entries(d.entries ?? {}).map(([k, v]) => {
         const [date, lineId] = [k.slice(0, 10), k.slice(11)];
-        return { date, lineId, workerIds: v.workerIds, per: v.per };
+        return { date, lineId, workerIds: v.workerIds, per: v.per, ...(v.notes?.some(Boolean) ? { notes: v.notes } : {}) };
       })).filter((e) => e.date >= from && e.date <= to).sort((a, b) => a.date.localeCompare(b.date));
     },
     async savePerDay(date: string, rows: (Omit<PerEntry, 'per'> & { per: number | null })[]) {
@@ -68,7 +68,7 @@ export function makeArtifactRepo(db: ArtifactDb, uploadImage?: (f: Blob) => Prom
       for (const r of rows) {
         const k = `${date}_${r.lineId}`;
         if (r.per === null) delete entries[k];
-        else entries[k] = { workerIds: r.workerIds, per: r.per };
+        else entries[k] = { workerIds: r.workerIds, per: r.per, ...(r.notes?.some((n) => n.trim()) ? { notes: r.workerIds.map((_, i) => (r.notes![i] ?? '').trim()) } : {}) };
       }
       await db.doc(path).set({ entries, ...stamp() });
     },
@@ -132,7 +132,18 @@ export function makeArtifactRepo(db: ArtifactDb, uploadImage?: (f: Blob) => Prom
         let changed = false;
         for (const [k, v] of Object.entries(entries)) {
           if (!(v.workerIds ?? []).includes(from)) continue;
-          entries[k] = { ...v, workerIds: swap(v.workerIds) }; changed = true;
+          // Keep each note with its worker while ids are swapped, merged or dropped.
+          const pairs: [string, string][] = [];
+          v.workerIds.forEach((id, i) => {
+            const nid = id === from ? to : id;
+            const note = v.notes?.[i] ?? '';
+            if (!nid) return;
+            const have = pairs.find((p) => p[0] === nid);
+            if (have) { if (note && !have[1]) have[1] = note; } else pairs.push([nid, note]);
+          });
+          const { notes: _old, ...rest } = v;
+          entries[k] = { ...rest, workerIds: pairs.map((p) => p[0]), ...(pairs.some((p) => p[1]) ? { notes: pairs.map((p) => p[1]) } : {}) };
+          changed = true;
         }
         if (changed) { await db.doc(`perMonth/${d.id}`).set({ entries, ...stamp() }); n++; }
       }

@@ -40,6 +40,8 @@ export interface PerEntry {
   lineId: string;
   workerIds: string[];
   per: number;
+  /** Note for each worker, same order as workerIds (absent when none was written). */
+  notes?: string[];
 }
 
 export interface LotEntry {

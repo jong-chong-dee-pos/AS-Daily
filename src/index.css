@@ -277,3 +277,23 @@ tr.item-bottom td { padding-top: 4px; }
   border: 1px solid #ffd79a; border-left: 4px solid var(--warn, #ff9f1a); border-radius: 10px; background: #fff8ec; color: #5b4300; }
 .notice b { font-weight: 700; }
 .notice a { color: var(--accent); font-weight: 600; }
+
+/* Daily entry: one column, top to bottom; % PER shows every line with no inner scroll. */
+.entry-stack, .entry-stack-rest { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.entry-stack { padding-bottom: 72px; } /* room for the floating save bar */
+.tablewrap.flat { overflow-x: auto; overflow-y: visible; max-height: none; }
+.entry-per th:nth-child(2), .entry-per th:nth-child(3) { width: 200px; }
+.entry-per th:nth-child(4) { width: 100px; }
+.entry-per td select { width: 100%; max-width: 220px; }
+.entry-per td input.note-input { min-width: 170px; }
+.entry-per td input.note-input:disabled { background: var(--base); border-style: dashed; }
+.entry-per td:first-child { white-space: nowrap; }
+.entry-stack-rest .lot-counts { width: auto; }
+.entry-stack-rest .lot-counts td input { width: 120px; }
+.entry-stack-rest .absences th:first-child { width: 300px; }
+.entry-stack-rest .absences th:nth-child(2) { width: 220px; }
+.entry-per { min-width: 980px; }
+.entry-per td select { min-width: 160px; }
+@media (max-width: 720px) {
+  .entry-stack-rest .lot-counts td input { width: 80px; }
+}

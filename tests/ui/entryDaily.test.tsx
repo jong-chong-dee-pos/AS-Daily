@@ -103,4 +103,37 @@ describe('EntryDaily', () => {
     const product = screen.getByLabelText('ชื่อ Product'), part = screen.getByLabelText('Part No.');
     expect(product.compareDocumentPosition(part) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
+  it('keeps a note for each worker next to % PER and shows it again', async () => {
+    const repo = setup('2026-11-04');
+    await waitFor(() => screen.getByLabelText('% PER SL1'));
+    expect(screen.getByLabelText('หมายเหตุ SL1 พนักงาน 2')).toBeDisabled(); // nobody in slot 2 yet
+    fireEvent.change(screen.getAllByLabelText('พนักงาน 2')[0], { target: { value: 'w3' } });
+    fireEvent.change(screen.getByLabelText('% PER SL1'), { target: { value: '130' } });
+    fireEvent.change(screen.getByLabelText('หมายเหตุ SL1 พนักงาน 2'), { target: { value: 'มาช่วยครึ่งวัน ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'บันทึก' }));
+    await waitFor(() => expect(repo.savePerDay).toHaveBeenCalled());
+    expect(repo.savePerDay).toHaveBeenCalledWith('2026-11-04', [
+      { date: '2026-11-04', lineId: 'sl1', workerIds: ['w1', 'w3'], per: 130, notes: ['', 'มาช่วยครึ่งวัน'] },
+      { date: '2026-11-04', lineId: 'sl2', workerIds: ['w2'], per: null },
+    ]);
+  });
+  it('loads saved notes and moves a note with its worker', async () => {
+    const repo = fakeRepo({ ...data, per: [{ date: '2026-11-03', lineId: 'sl1', workerIds: ['w1', 'w3'], per: 120, notes: ['ออกก่อน 15:00', 'ช่วยงาน'] }] });
+    render(<RepoContext.Provider value={repo}><EntryDaily initialDate="2026-11-03" /></RepoContext.Provider>);
+    await waitFor(() => expect(screen.getByLabelText('หมายเหตุ SL1 พนักงาน 1')).toHaveValue('ออกก่อน 15:00'));
+    expect(screen.getByLabelText('หมายเหตุ SL1 พนักงาน 2')).toHaveValue('ช่วยงาน');
+    fireEvent.change(screen.getAllByLabelText('พนักงาน 1')[0], { target: { value: '' } }); // worker 1 removed
+    expect(screen.getAllByLabelText('พนักงาน 2')[0]).toHaveValue('w3');
+    expect(screen.getByLabelText('หมายเหตุ SL1 พนักงาน 1')).toHaveValue(''); // the note left with w1
+    expect(screen.getByLabelText('หมายเหตุ SL1 พนักงาน 2')).toHaveValue('ช่วยงาน');
+    fireEvent.change(screen.getAllByLabelText('พนักงาน 2')[0], { target: { value: 'w2' } }); // someone else
+    expect(screen.getByLabelText('หมายเหตุ SL1 พนักงาน 2')).toHaveValue('');
+  });
+  it('a note needs the line % PER so it is not lost', async () => {
+    setup('2026-11-04');
+    await waitFor(() => screen.getByLabelText('หมายเหตุ SL1 พนักงาน 1'));
+    fireEvent.change(screen.getByLabelText('หมายเหตุ SL1 พนักงาน 1'), { target: { value: 'ลาครึ่งวัน' } });
+    expect(screen.getByRole('alert')).toHaveTextContent('ไลน์ SL1 มีหมายเหตุแต่ยังไม่ได้กรอก % PER');
+    expect(screen.getByRole('button', { name: 'บันทึก' })).toBeDisabled();
+  });
 });
