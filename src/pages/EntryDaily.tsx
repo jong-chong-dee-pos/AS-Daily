@@ -6,7 +6,8 @@ import { workerLabel } from '../ui/labels';
 import { daysInMonth } from '../calc/period';
 import { fmtDate, fmtMonth, todayIso } from '../ui/format';
 
-interface Row { workerIds: string[]; per: string }
+/** One line on one day: up to two workers, the line's % PER, and a note per worker. */
+interface Row { workerIds: string[]; per: string; notes: string[] }
 
 /** "" → null (blank day), valid number ≥ 0 → number, anything else → NaN. */
 export function parseNum(s: string): number | null {
@@ -60,7 +61,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
     setWorkers(ws);
     setRows(Object.fromEntries(active.map((l) => {
       const e = per.find((p) => p.lineId === l.id);
-      return [l.id, e ? { workerIds: e.workerIds, per: String(e.per) } : { workerIds: l.defaultWorkerIds, per: '' }];
+      return [l.id, e ? { workerIds: e.workerIds, per: String(e.per), notes: e.notes ?? [] } : { workerIds: l.defaultWorkerIds, per: '', notes: [] }];
     })));
     const le = lots[0];
     setLot(le ? { sent: String(le.sent), patrol: String(le.patrol), fg: String(le.fg) } : { sent: '', patrol: '', fg: '' });
@@ -86,6 +87,11 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
   const setAbs = (key: string, patch: Partial<Absence>) => { setAbsences((xs) => xs.map((x) => (x.key === key ? { ...x, ...patch } : x))); touch(); };
 
   const perInvalid = Object.values(rows).some((r) => bad(r.per));
+  /** A note is kept only with a % PER (a blank % PER means the line did not run). */
+  const noteWithoutPer = lines.filter((l) => {
+    const r = rows[l.id];
+    return r && parseNum(r.per) === null && r.notes.some((n, i) => n.trim() && r.workerIds[i]);
+  }).map((l) => l.code);
   const lotInvalid = bad(lot.sent) || bad(lot.patrol) || bad(lot.fg);
   const sent = parseNum(lot.sent), patrol = parseNum(lot.patrol), fg = parseNum(lot.fg);
   const lotOverflow = !lotInvalid && (patrol ?? 0) + (fg ?? 0) > (sent ?? 0) && (patrol ?? 0) + (fg ?? 0) > 0;
@@ -93,7 +99,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
   const lotBlank = sent === null && patrol === null && fg === null && items.length === 0;
   const absInvalid = absences.some((a) => !a.workerId);
   const absOtherBlank = absences.some((a) => a.reason === 'other' && !a.note.trim());
-  const canSave = !busy && !perInvalid && !lotInvalid && !lotOverflow && !absInvalid && !absOtherBlank && !uploading;
+  const canSave = !busy && !perInvalid && !noteWithoutPer.length && !lotInvalid && !lotOverflow && !absInvalid && !absOtherBlank && !uploading;
 
   const setters = useMemo(() => {
     const order: string[] = [];
@@ -106,9 +112,15 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
   const save = async () => {
     setBusy(true); setStatus('กำลังบันทึก…');
     try {
-      await repo.savePerDay(date, lines.map((l) => ({
-        date, lineId: l.id, workerIds: rows[l.id].workerIds.filter(Boolean), per: parseNum(rows[l.id].per),
-      })));
+      await repo.savePerDay(date, lines.map((l) => {
+        const r = rows[l.id];
+        // Keep each note with its worker; an empty worker slot drops its note too.
+        const pairs = r.workerIds.map((id, i) => [id, (r.notes[i] ?? '').trim()] as const).filter(([id]) => id);
+        return {
+          date, lineId: l.id, workerIds: pairs.map(([id]) => id), per: parseNum(r.per),
+          ...(pairs.some(([, n]) => n) ? { notes: pairs.map(([, n]) => n) } : {}),
+        };
+      }));
       const cleanItems = items.map((i) => ({ ...i, partNo: i.partNo.trim(), product: (i.product ?? '').trim(), note: i.note.trim() }));
       if (lotBlank) await repo.deleteLotDay(date);
       else await repo.saveLotDay({ date, sent: sent ?? 0, patrol: patrol ?? 0, fg: fg ?? 0, items: cleanItems });
@@ -142,13 +154,27 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
     return [...extra, ...activeWorkers].map((w) => <option key={w.id} value={w.id}>{w.name}</option>);
   };
 
+  const noteInput = (l: Line, idx: number) => {
+    const r = rows[l.id];
+    const who = r?.workerIds[idx];
+    return (
+      <input aria-label={`หมายเหตุ ${l.code} พนักงาน ${idx + 1}`} className="wide note-input" disabled={!who}
+        placeholder={who ? `หมายเหตุ ${workerLabel(workers, who)}` : ''}
+        value={who ? r.notes[idx] ?? '' : ''}
+        onChange={(e) => { const notes = [...(r.notes ?? [])]; notes[idx] = e.target.value; setRow(l.id, { notes }); }} />
+    );
+  };
+
   const workerSelect = (lineId: string, idx: number) => {
     const ids = rows[lineId]?.workerIds ?? [];
     return (
       <select id={`w-${lineId}-${idx}`} aria-label={`พนักงาน ${idx + 1}`} value={ids[idx] ?? ''}
         onChange={(e) => {
           const next = [...ids]; next[idx] = e.target.value;
-          setRow(lineId, { workerIds: next.filter((x, i) => x || i === 0).slice(0, 2) });
+          const notes = [...(rows[lineId]?.notes ?? [])];
+          // Slot 1 always exists. A note belongs to its person: changing or clearing the person clears it.
+          const keep = [0, 1].filter((i) => next[i] || i === 0);
+          setRow(lineId, { workerIds: keep.map((i) => next[i] ?? '').slice(0, 2), notes: keep.map((i) => (next[i] && next[i] === ids[i] ? notes[i] ?? '' : '')) });
         }}>
         <option value="">{idx === 0 ? '— เลือก —' : '—'}</option>
         {workerOptions(ids[idx])}
@@ -190,15 +216,15 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
         </div>
       )}
 
-      <div className="grid-2">
+      <div className="entry-stack">
         <div className="panel">
-          <div className="panel-head"><h2>% PER</h2><span className="hint">เว้นว่าง = ไลน์ไม่ได้ผลิตวันนั้น</span></div>
-          <div className="tablewrap tall" style={{ boxShadow: 'none' }}>
-            <table>
-              <thead><tr><th>ไลน์</th><th>พนักงาน 1</th><th>พนักงาน 2</th><th className="num">% PER</th></tr></thead>
+          <div className="panel-head"><h2>% PER</h2><span className="hint">เว้นว่าง = ไลน์ไม่ได้ผลิตวันนั้น · หมายเหตุแยกตามพนักงานแต่ละคน</span></div>
+          <div className="tablewrap flat" style={{ boxShadow: 'none' }}>
+            <table className="entry-per">
+              <thead><tr><th>ไลน์</th><th>พนักงาน 1</th><th>พนักงาน 2</th><th className="num">% PER</th><th>หมายเหตุ พนักงาน 1</th><th>หมายเหตุ พนักงาน 2</th></tr></thead>
               <tbody>
                 {setters.map((s) => [
-                  <tr key={`g-${s}`} className="group"><td colSpan={4}>Setter: {s || 'ยังไม่ได้กำหนด'}</td></tr>,
+                  <tr key={`g-${s}`} className="group"><td colSpan={6}>Setter: {s || 'ยังไม่ได้กำหนด'}</td></tr>,
                   ...lines.filter((l) => l.setter === s).map((l) => (
                     <tr key={l.id}>
                       <td><b>{l.code}</b></td>
@@ -209,6 +235,8 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
                           className={bad(rows[l.id]?.per ?? '') ? 'invalid' : ''}
                           value={rows[l.id]?.per ?? ''} onChange={(e) => setRow(l.id, { per: e.target.value })} />
                       </td>
+                      <td>{noteInput(l, 0)}</td>
+                      <td>{noteInput(l, 1)}</td>
                     </tr>
                   )),
                 ])}
@@ -216,12 +244,14 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
             </table>
           </div>
           {perInvalid && <p className="error" role="alert">กรอกตัวเลข 0 ขึ้นไป</p>}
+          {!perInvalid && noteWithoutPer.length > 0 && <p className="error" role="alert">ไลน์ {noteWithoutPer.join(', ')} มีหมายเหตุแต่ยังไม่ได้กรอก % PER</p>}
         </div>
 
-        <div className="stack">
+        <div className="entry-stack-rest">
           <div className="panel">
             <div className="panel-head"><h2>Lot out</h2></div>
-            <table>
+            <div className="tablewrap flat" style={{ boxShadow: 'none' }}>
+            <table className="lot-counts">
               <thead><tr><th className="num">Lot ส่งตรวจ (ครั้ง)</th><th className="num">Lot out Patrol</th><th className="num">Lot out FG</th></tr></thead>
               <tbody><tr>
                 {(['sent', 'patrol', 'fg'] as const).map((k) => (
@@ -233,6 +263,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
                 ))}
               </tr></tbody>
             </table>
+            </div>
             {lotInvalid && <p className="error" role="alert">กรอกตัวเลข 0 ขึ้นไป</p>}
             {lotOverflow && <p className="error" role="alert">Lot out มากกว่า Lot ส่งตรวจ</p>}
 
@@ -291,7 +322,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
               <button type="button" className="secondary sm" onClick={() => { setAbsences((xs) => [...xs, { key: newKey(), workerId: '', reason: 'sick', note: '' }]); touch(); }}>+ เพิ่มคนที่ไม่มา</button>
             </div>
             <div className="tablewrap" style={{ boxShadow: 'none' }}>
-              <table>
+              <table className="absences">
                 <thead><tr><th>พนักงาน</th><th>ประเภทการลา</th><th /></tr></thead>
                 <tbody>
                   {absences.map((a) => [

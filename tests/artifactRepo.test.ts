@@ -102,4 +102,20 @@ describe('artifact repo', () => {
     expect(await r.getAbsences('2026-11-01', '2026-11-30')).toEqual([]);
     expect(store.size).toBeGreaterThan(0);
   });
+
+  it('keeps per-worker notes, and keeps them with their worker when ids change', async () => {
+    const { db } = memDb();
+    const r = makeArtifactRepo(db);
+    await r.savePerDay('2026-11-02', [
+      { date: '2026-11-02', lineId: 'sl1', workerIds: ['w20', 'w19'], per: 120, notes: [' ป่วยบ่าย ', ''] },
+      { date: '2026-11-02', lineId: 'sl2', workerIds: ['w1'], per: 100, notes: [''] },
+    ]);
+    let per = await r.getPerEntries('2026-11-02', '2026-11-02');
+    expect(per.find((e) => e.lineId === 'sl1')!.notes).toEqual(['ป่วยบ่าย', '']);
+    expect(per.find((e) => e.lineId === 'sl2')!.notes).toBeUndefined();
+    await r.replaceWorker('w20', null);
+    per = await r.getPerEntries('2026-11-02', '2026-11-02');
+    expect(per.find((e) => e.lineId === 'sl1')).toMatchObject({ workerIds: ['w19'] });
+    expect(per.find((e) => e.lineId === 'sl1')!.notes).toBeUndefined();
+  });
 });
