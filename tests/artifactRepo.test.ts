@@ -135,7 +135,7 @@ describe('artifact repo', () => {
   it('stores monthly production figures one document per month', async () => {
     const { db, store } = memDb();
     const r = makeArtifactRepo(db);
-    const o = { month: '2026-11', prodPlan: 70123, prodActual: 42144, matStd: 48.15, matAct: 48.19, processCost: null, headcount: null, expense: null, prodForHead: null };
+    const o = { month: '2026-11', prodPlan: 12000, prodActual: 8000, matStd: 40, matAct: 40.2, processCost: null, headcount: null, expense: null, prodForHead: null };
     await r.saveOpsMonth(o);
     expect(store.has('opsMonthly/2026-11')).toBe(true);
     expect(await r.getOpsMonths('2026-01', '2026-12')).toEqual([expect.objectContaining(o)]);

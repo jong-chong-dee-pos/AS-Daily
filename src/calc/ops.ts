@@ -3,13 +3,16 @@ import type { OpsMonth, OtdMonth, OtdRow } from '../types';
 const div = (a: number | null | undefined, b: number | null | undefined) =>
   a == null || b == null || b === 0 ? null : a / b;
 
+/** Pieces used for Process THB/Pcs.: the separate figure when given, else ACTUAL (AS). */
+export const costPieces = (o: OpsMonth) => o.prodForCost ?? o.prodActual;
+
 /** Pieces used for Pcs./head and Expense/Pcs.: the separate figure when given, else ACTUAL (AS). */
 export const headPieces = (o: OpsMonth) => o.prodForHead ?? o.prodActual;
 
 /** Values computed from what was entered for one month. */
 export function opsDerived(o: OpsMonth) {
   return {
-    processPerPcs: div(o.processCost, o.prodActual),
+    processPerPcs: div(o.processCost, costPieces(o)),
     pcsPerHead: div(headPieces(o), o.headcount),
     expensePerPcs: div(o.expense, headPieces(o)),
     matVariance: o.matStd == null || o.matAct == null ? null : o.matStd - o.matAct,

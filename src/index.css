@@ -299,7 +299,11 @@ tr.item-bottom td { padding-top: 4px; }
 }
 
 /* Monthly entry: production and cost figures, and what the system computes from them. */
-.ops-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px 18px; margin-top: 6px; }
+.ops-group { border: 0; padding: 0; margin: 14px 0 0; min-width: 0; }
+.ops-group + .ops-group { padding-top: 14px; border-top: 1px solid var(--hair); }
+.ops-group legend { padding: 0; margin-bottom: 8px; font-size: .8rem; font-weight: 700; letter-spacing: .02em; color: var(--accent); }
+.ops-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 18px; }
+@media (max-width: 760px) { .ops-grid { grid-template-columns: minmax(0, 1fr); } }
 .ops-field { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: .9rem; color: var(--ink-2); }
 .ops-field small { font-weight: 400; color: var(--muted, #8a87a6); }
 .ops-field input { width: 100%; text-align: right; }
@@ -314,12 +318,19 @@ tr.item-bottom td { padding-top: 4px; }
 .otd-good { color: #0f8a52; } .otd-warn { color: #a07800; } .otd-bad { color: var(--bad); }
 
 /* %OTD table: cells coloured by the report's bands. */
+.otd-card figcaption { flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; }
+.otd-card .seg button { padding: 4px 12px; min-height: 30px; font-size: .85rem; }
+.otd-scroll { overflow-x: auto; }
+.otd-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+.otd-table th, .otd-table td { padding: 6px 10px; line-height: 1.3; }
+.otd-table th { font-size: .76rem; }
+.otd-table td.grp { white-space: nowrap; }
 .otd-table td.otd-cell { font-weight: 700; text-align: right; }
+.stack-part + .stack-part { margin-top: 10px; }
+.stack-band { color: #fff; font-weight: 700; font-size: .82rem; text-align: center; padding: 4px 8px; border-radius: 6px; }
 .otd-table td.otd-cell.good { background: #c9f7dd; color: #0b6b3e; }
 .otd-table td.otd-cell.warn { background: #fff1a8; color: #6d5400; }
 .otd-table td.otd-cell.bad { background: #ffd0db; color: #a1123a; }
 .otd-table tr.sum td { font-weight: 700; background: #f3f2fa; }
-.otd-table th.wk { text-align: center; border-left: 1px solid #e6e4f2; }
-.otd-table td.wk-start { border-left: 1px solid #e6e4f2; }
 .otd-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .85rem; color: var(--ink-2); }
 .otd-legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; margin-right: 6px; vertical-align: -2px; }

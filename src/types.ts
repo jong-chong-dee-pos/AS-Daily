@@ -143,6 +143,8 @@ export interface OpsMonth {
   headcount: number | null;
   /** Total expense for the month, baht (Expense/Pcs.). */
   expense: number | null;
+  /** Pieces for Process THB/Pcs. (the "Production" line of the Process cost report); blank = ACTUAL. */
+  prodForCost?: number | null;
   /** Pieces for Pcs./head and Expense/Pcs. when it differs from ACTUAL (AS); blank = ACTUAL. */
   prodForHead?: number | null;
 }
