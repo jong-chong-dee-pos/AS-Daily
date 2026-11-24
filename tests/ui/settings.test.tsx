@@ -93,6 +93,12 @@ describe('Settings import', () => {
     fireEvent.click(screen.getByRole('button', { name: 'นำเข้า' }));
     await waitFor(() => expect(repo.importDocs).toHaveBeenCalledWith(docs.slice(0, 2), expect.any(Function)));
   });
+  it('lists the monthly production figures a file holds', async () => {
+    render(<RepoContext.Provider value={fakeRepo({})}><ImportSection /></RepoContext.Provider>);
+    const docs = [{ path: 'opsMonthly/2026-01', data: { month: '2026-01' } }, { path: 'opsMonthly/2026-02', data: { month: '2026-02' } }];
+    fireEvent.change(screen.getByLabelText('ไฟล์ข้อมูล'), { target: { files: [new File([JSON.stringify(docs)], 'ops.json')] } });
+    await waitFor(() => screen.getByText('พบ 2 รายการ: ยอดผลิตและต้นทุนการผลิต (เดือน) 2'));
+  });
 });
 
 describe('Settings workers keep reports correct', () => {

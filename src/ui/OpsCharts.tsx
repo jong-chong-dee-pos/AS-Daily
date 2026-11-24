@@ -64,6 +64,15 @@ export function otdMonthSeries(d: ReportData, year: number): OpsPoint[] {
     .map((p) => ({ ...p, pct: p.pct === null ? null : Math.round(p.pct * 1000) / 10 }));
 }
 
+interface ValueProps { x?: number; y?: number; width?: number; value?: number | null }
+/** A bar's value above it; written upright when two bars share a month, so neighbours never overlap. */
+function BarValue({ x = 0, y = 0, width = 0, value, text, vertical }: ValueProps & { text: (v: number) => string; vertical: boolean }) {
+  if (value === null || value === undefined) return null;
+  const cx = x + width / 2;
+  return vertical
+    ? <text x={cx} y={y - 5} transform={`rotate(-90 ${cx} ${y - 5})`} dominantBaseline="central" fontSize={11} fontWeight={600} fill="#2a2750">{text(value)}</text>
+    : <text x={cx} y={y - 6} textAnchor="middle" fontSize={12} fontWeight={600} fill="#2a2750">{text(value)}</text>;
+}
 const big = (v: number, digits: number) => (Math.abs(v) >= 10000 ? `${fmtNum(v / 1000, 1)}k` : fmtNum(v, digits));
 
 /**
@@ -93,7 +102,7 @@ export function MonthChart({ title, sub, data, bars, line, height = 300, unit = 
       </figcaption>
       {!hasData ? <p className="empty" style={{ height: height - 60 }}>ยังไม่มีข้อมูลของปีนี้</p> : (
         <ResponsiveContainer width="100%" height={height}>
-          <ComposedChart data={data} margin={{ top: 28, right: line ? 4 : 12, left: 0, bottom: 0 }} barGap={3} barCategoryGap={bars.length > 1 ? '18%' : '28%'}>
+          <ComposedChart data={data} margin={{ top: bars.length > 1 && !crowded ? 52 : 28, right: line ? 4 : 12, left: 0, bottom: 0 }} barGap={3} barCategoryGap={bars.length > 1 ? '18%' : '28%'}>
             <CartesianGrid stroke="#eeedf6" strokeDasharray="4 4" vertical={false} />
             <XAxis dataKey="name" tick={<XTick />} height={data.some((p) => /-\d{2}$/.test(String(p.name))) ? 40 : 30} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={crowded ? 1 : 0} />
             <YAxis yAxisId="l" tick={AXIS} axisLine={false} tickLine={false} width={48} domain={[0, 'auto']}
@@ -106,8 +115,7 @@ export function MonthChart({ title, sub, data, bars, line, height = 300, unit = 
             {bars.map((b) => (
               <Bar key={b.key} yAxisId="l" dataKey={b.key} name={b.name} fill={b.color} radius={[6, 6, 0, 0]} maxBarSize={bars.length > 1 ? 26 : 40} isAnimationActive={false}>
                 {colorOf && data.map((p, i) => <Cell key={i} fill={colorOf(typeof p[b.key] === 'number' ? (p[b.key] as number) : null)} />)}
-                {!crowded && <LabelList dataKey={b.key} position="top" style={{ fontSize: bars.length > 1 ? 10 : 12, fontWeight: 600, fill: '#2a2750' }}
-                  formatter={(v: number | null) => (v === null || v === undefined ? '' : `${big(v, b.digits)}${unit}`)} />}
+                {!crowded && <LabelList dataKey={b.key} content={(p) => <BarValue {...(p as ValueProps)} text={(v) => `${big(v, b.digits)}${unit}`} vertical={bars.length > 1} />} />}
               </Bar>
             ))}
             {line && (

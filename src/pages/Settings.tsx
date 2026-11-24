@@ -463,8 +463,9 @@ export function ImportSection() {
       <label className="upload" style={{ position: 'relative' }}>เลือกไฟล์ .json
         <input type="file" accept="application/json,.json" aria-label="ไฟล์ข้อมูล" onChange={(e) => read(e.target.files?.[0])} /></label>
       {docs && (
-        <p style={{ marginTop: 12 }}>พบ {docs.length} รายการ: U-Line {count('lines')}, พนักงาน {count('workers')}, % PER {count('perMonth')} เดือน,
-          Lot out {count('lotMonth')} เดือน, ต้นทุน {count('costMonthly')} เดือน, เป้า {count('targets')}, สรุปย้อนหลัง {count('monthlySummary')}</p>
+        <p style={{ marginTop: 12 }}>พบ {docs.length} รายการ: {([['lines', 'U-Line'], ['workers', 'พนักงาน'], ['perMonth', '% PER (เดือน)'],
+          ['lotMonth', 'Lot out (เดือน)'], ['costMonthly', 'ต้นทุน (เดือน)'], ['opsMonthly', 'ยอดผลิตและต้นทุนการผลิต (เดือน)'], ['otdMonthly', '%OTD (เดือน)'],
+          ['targets', 'เป้า'], ['monthlySummary', 'สรุปย้อนหลัง']] as const).filter(([c]) => count(c) > 0).map(([c, l]) => `${l} ${count(c)}`).join(', ')}</p>
       )}
       <div className="actions">
         <button type="button" disabled={!docs || busy} onClick={run}>นำเข้า</button>
