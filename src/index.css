@@ -334,3 +334,6 @@ tr.item-bottom td { padding-top: 4px; }
 .otd-table tr.sum td { font-weight: 700; background: #f3f2fa; }
 .otd-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .85rem; color: var(--ink-2); }
 .otd-legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; margin-right: 6px; vertical-align: -2px; }
+
+.section-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 36px 0 14px; }
+.section-row .section-title { margin: 0; }

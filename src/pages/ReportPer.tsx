@@ -50,7 +50,10 @@ export function ReportPer() {
             </div>
           )}
           {!(period.kind === 'month' && imported) && <>
-          <h2 className="section-title">ตาราง % PER <small>{periodName(period)}</small></h2>
+          <div className="section-row">
+            <h2 className="section-title">ตาราง % PER <small>{periodName(period)}</small></h2>
+            <PerTableDownload table={table} period={period} tab={tab} />
+          </div>
           <div className="tablewrap tall">
             <table className="pertable">
               <thead>
@@ -108,6 +111,26 @@ export function ReportPer() {
     </section>
   );
 }
+
+/** Downloads the table exactly as shown (view, period, colours) as an .xlsx file. */
+function PerTableDownload({ table, period, tab }: { table: Built; period: Period; tab: Tab }) {
+  const [busy, setBusy] = useState(false);
+  const label = TABS.find(([k]) => k === tab)![1];
+  const run = async () => {
+    setBusy(true);
+    try {
+      const { exportPerTable } = await import('../export/perTableExcel');
+      await exportPerTable(table, `ตาราง % PER ${label} · ${periodTitle(period)}`, tab === 'line', perTableFileName(period, tab));
+    } finally { setBusy(false); }
+  };
+  return <button type="button" className="secondary" disabled={busy || table.body.length === 0} onClick={run}>{busy ? 'กำลังสร้างไฟล์…' : 'ดาวน์โหลด Excel'}</button>;
+}
+
+/**
+ * e.g. "PER_Line_2026-11.xlsx", "PER_Person_2026.xlsx". English view names: some browsers drop
+ * a download name that has Thai letters and save the file as "download".
+ */
+export const perTableFileName = (p: Period, tab: Tab) => `PER_${{ line: 'Line', setter: 'Setter', person: 'Person' }[tab]}_${periodName(p)}.xlsx`;
 
 const TABS = [['line', 'รายไลน์'], ['setter', 'ราย Setter'], ['person', 'รายคน']] as const;
 
