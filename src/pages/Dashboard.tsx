@@ -13,7 +13,7 @@ import { ExportButtons } from '../ui/ExportButtons';
 import { CostChart, LotMonthChart, PerMonthChart, lotMonthSeries, perMonthSeries } from '../ui/ExcelCharts';
 import { Icon } from '../ui/Layout';
 import { OpsCharts, OtdSection } from '../ui/OpsCharts';
-import { opsDerived } from '../calc/ops';
+import { costPieces, headPieces, opsDerived } from '../calc/ops';
 import { buildCostRows, costTotal } from './ReportCost';
 import { periodName } from './ReportPer';
 import { CostMissing, missingCostMonths } from '../ui/CostMissing';
@@ -71,7 +71,7 @@ export function Dashboard() {
     ...s.cost.map((c) => [`Variance ${COST_LABEL[c.cat]}`, c.variance, null])] : [];
 
   const monthlyRows: (string | number | null)[][] = [[`ยอดผลิต ต้นทุนต่อชิ้น และ %OTD ปี ${year}`],
-    ['เดือน', 'PLAN (PN)', 'ACTUAL (AS)', 'Material Std', 'Material Act', 'Actual Process Cost', 'Process THB/Pcs.', 'Pcs./head', 'Expense/Pcs.', '%OTD'],
+    ['เดือน', 'PLAN (PN)', 'ACTUAL (AS)', 'Material Std', 'Material Act', 'Actual Process Cost', 'Production (Process)', 'Process THB/Pcs.', 'จำนวนคน', 'Expense', 'Production (Pcs./head)', 'Pcs./head', 'Expense/Pcs.', '%OTD'],
     ...Array.from({ length: 12 }, (_, i) => {
       const m = `${year}-${String(i + 1).padStart(2, '0')}`;
       const o = yd?.ops?.find((x) => x.month === m);
@@ -79,7 +79,7 @@ export function Dashboard() {
       const r2 = (v: number | null | undefined) => (v == null ? null : Math.round(v * 100) / 100);
       const otd = yd?.otd?.find((x) => x.month === m)?.pct;
       return [fmtMonth(m), o?.prodPlan ?? null, o?.prodActual ?? null, o?.matStd ?? null, o?.matAct ?? null, o?.processCost ?? null,
-        r2(c?.processPerPcs), r2(c?.pcsPerHead), r2(c?.expensePerPcs), otd == null ? null : Math.round(otd * 1000) / 10];
+        o ? costPieces(o) : null, r2(c?.processPerPcs), o?.headcount ?? null, o?.expense ?? null, o ? headPieces(o) : null, r2(c?.pcsPerHead), r2(c?.expensePerPcs), otd == null ? null : Math.round(otd * 1000) / 10];
     })];
 
   return (

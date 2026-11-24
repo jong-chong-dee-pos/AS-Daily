@@ -10,16 +10,18 @@ import { OtdUpload } from './OtdUpload';
 
 type OpsKey = Exclude<keyof OpsMonth, 'month'>;
 /** The monthly production and cost figures, in the order they are typed. */
-export const OPS_FIELDS: { key: OpsKey; label: string; unit: string; hint?: string }[] = [
-  { key: 'prodPlan', label: 'ยอดผลิต PLAN (PN)', unit: 'ชิ้น' },
-  { key: 'prodActual', label: 'ยอดผลิต ACTUAL (AS)', unit: 'ชิ้น' },
-  { key: 'matStd', label: 'Material cost Standard', unit: '' },
-  { key: 'matAct', label: 'Material cost Actual', unit: '' },
-  { key: 'processCost', label: 'Actual Process Cost', unit: 'บาท' },
-  { key: 'expense', label: 'Expense รวม', unit: 'บาท' },
-  { key: 'headcount', label: 'จำนวนคน', unit: 'คน' },
-  { key: 'prodForHead', label: 'ยอดผลิตสำหรับ Pcs./head และ Expense/Pcs.', unit: 'ชิ้น', hint: 'เว้นว่าง = ใช้ยอด ACTUAL (AS)' },
+export const OPS_FIELDS: { key: OpsKey; label: string; unit: string; hint?: string; group: string }[] = [
+  { key: 'prodPlan', label: 'ยอดผลิต PLAN (PN)', unit: 'ชิ้น', group: 'Assembly Production Volume' },
+  { key: 'prodActual', label: 'ยอดผลิต ACTUAL (AS)', unit: 'ชิ้น', group: 'Assembly Production Volume' },
+  { key: 'matStd', label: 'Material cost Standard', unit: '', group: 'Material cost Variance' },
+  { key: 'matAct', label: 'Material cost Actual', unit: '', group: 'Material cost Variance' },
+  { key: 'processCost', label: 'Actual Process Cost', unit: 'บาท', group: 'Process Cost per pcs' },
+  { key: 'prodForCost', label: 'ยอดผลิตสำหรับ Process THB/Pcs.', unit: 'ชิ้น', hint: 'เว้นว่าง = ใช้ยอด ACTUAL (AS)', group: 'Process Cost per pcs' },
+  { key: 'headcount', label: 'จำนวนคน', unit: 'คน', group: 'Pcs./head และ Expense/Pcs.' },
+  { key: 'expense', label: 'Expense รวม', unit: 'บาท', group: 'Pcs./head และ Expense/Pcs.' },
+  { key: 'prodForHead', label: 'ยอดผลิตสำหรับ Pcs./head และ Expense/Pcs.', unit: 'ชิ้น', hint: 'เว้นว่าง = ใช้ยอด ACTUAL (AS)', group: 'Pcs./head และ Expense/Pcs.' },
 ];
+const OPS_GROUPS = [...new Set(OPS_FIELDS.map((f) => f.group))];
 type OpsVals = Record<OpsKey, string>;
 const blankOps = (): OpsVals => Object.fromEntries(OPS_FIELDS.map((f) => [f.key, ''])) as OpsVals;
 
@@ -70,7 +72,7 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
   const opsRecord = (): OpsMonth => {
     const n = (k: OpsKey) => { const v = opsNum(k); return Number.isNaN(v) ? null : v; };
     return { month, prodPlan: n('prodPlan'), prodActual: n('prodActual'), matStd: n('matStd'), matAct: n('matAct'),
-      processCost: n('processCost'), headcount: n('headcount'), expense: n('expense'), prodForHead: n('prodForHead') };
+      processCost: n('processCost'), headcount: n('headcount'), expense: n('expense'), prodForCost: n('prodForCost'), prodForHead: n('prodForHead') };
   };
   const derived = opsDerived(opsRecord());
   const setOp = (k: OpsKey, v: string) => { setOps((s) => ({ ...s, [k]: v })); setDirty(true); setStatus(''); };
@@ -117,17 +119,22 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
       )}
       <div className="panel" style={{ maxWidth: 1100 }}>
         <div className="panel-head"><h2>ยอดผลิตและต้นทุนการผลิต</h2><span className="hint">กรอกเฉพาะตัวตั้ง ค่าต่อชิ้นระบบคำนวณให้</span></div>
-        <div className="ops-grid">
-          {OPS_FIELDS.map((f) => (
-            <label key={f.key} className="ops-field">
-              <span>{f.label}{f.unit && <small> ({f.unit})</small>}</span>
-              <input aria-label={f.label} inputMode="decimal" className={Number.isNaN(opsNum(f.key)) ? 'invalid' : ''}
-                placeholder={f.hint ?? ''} value={ops[f.key]} onChange={(e) => setOp(f.key, e.target.value)} />
-            </label>
-          ))}
-        </div>
+        {OPS_GROUPS.map((g) => (
+          <fieldset key={g} className="ops-group">
+            <legend>{g}</legend>
+            <div className="ops-grid">
+              {OPS_FIELDS.filter((f) => f.group === g).map((f) => (
+                <label key={f.key} className="ops-field">
+                  <span>{f.label}{f.unit && <small> ({f.unit})</small>}</span>
+                  <input aria-label={f.label} inputMode="decimal" className={Number.isNaN(opsNum(f.key)) ? 'invalid' : ''}
+                    placeholder={f.hint ?? ''} value={ops[f.key]} onChange={(e) => setOp(f.key, e.target.value)} />
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ))}
         <div className="ops-calc" aria-label="ค่าที่ระบบคำนวณ">
-          <div><span>Process THB/Pcs.</span><b data-testid="calc-process">{fmtNum(derived.processPerPcs, 2)}</b><small>Process Cost ÷ ACTUAL</small></div>
+          <div><span>Process THB/Pcs.</span><b data-testid="calc-process">{fmtNum(derived.processPerPcs, 2)}</b><small>Process Cost ÷ ยอดผลิต</small></div>
           <div><span>Pcs./head</span><b data-testid="calc-head">{fmtNum(derived.pcsPerHead, 0)}</b><small>ยอดผลิต ÷ จำนวนคน</small></div>
           <div><span>Expense/Pcs.</span><b data-testid="calc-expense">{fmtNum(derived.expensePerPcs, 2)}</b><small>Expense ÷ ยอดผลิต</small></div>
           <div><span>Material Variance</span><b data-testid="calc-mat" className={derived.matVariance !== null && derived.matVariance < 0 ? 'neg' : ''}>{fmtNum(derived.matVariance, 2)}</b><small>Standard − Actual</small></div>

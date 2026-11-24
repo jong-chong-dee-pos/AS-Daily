@@ -48,14 +48,15 @@ describe('%OTD workbook', () => {
 });
 
 describe('monthly figures', () => {
-  it('computes per-piece values from what was entered (Jan 2026 in the old report)', () => {
-    const c = opsDerived({ month: '2026-01', prodPlan: 76580, prodActual: 84761, matStd: 62.24, matAct: 62.17,
-      processCost: 605521, headcount: 61.17, expense: 414595, prodForHead: 86374 });
-    expect(c.processPerPcs).toBeCloseTo(7.14, 2);
-    expect(Math.round(c.pcsPerHead!)).toBe(1412);
-    expect(c.expensePerPcs).toBeCloseTo(4.8, 1);
-    expect(c.matVariance).toBeCloseTo(0.07, 2);
-    expect(c.prodDiff).toBe(8181);
+  it('computes per-piece values, each from its own production figure', () => {
+    const c = opsDerived({ month: '2026-01', prodPlan: 10000, prodActual: 9000, matStd: 50, matAct: 49.5,
+      processCost: 72000, prodForCost: 9600, headcount: 8, expense: 49000, prodForHead: 9800 });
+    expect(c.processPerPcs).toBeCloseTo(7.5, 6); // 72,000 ÷ 9,600, not ÷ ACTUAL
+    expect(c.pcsPerHead).toBeCloseTo(1225, 6); // 9,800 ÷ 8
+    expect(c.expensePerPcs).toBeCloseTo(5, 6); // 49,000 ÷ 9,800
+    expect(c.matVariance).toBeCloseTo(0.5, 6);
+    expect(c.prodDiff).toBe(-1000);
+    expect(opsDerived({ month: '2026-01', prodPlan: null, prodActual: 9000, matStd: null, matAct: null, processCost: 72000, headcount: null, expense: null }).processPerPcs).toBeCloseTo(8, 6);
   });
   it('uses ACTUAL for Pcs./head when no separate figure is given; blanks stay blank', () => {
     const c = opsDerived({ month: '2026-02', prodPlan: null, prodActual: 1000, matStd: null, matAct: null, processCost: null, headcount: 4, expense: null });

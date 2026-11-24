@@ -45,21 +45,24 @@ describe('EntryCost', () => {
     render(<RepoContext.Provider value={repo}><EntryCost initialMonth="2026-01" /></RepoContext.Provider>);
     await waitFor(() => expect(screen.getByRole('button', { name: 'บันทึก' })).toBeEnabled());
     const type = (l: string, v: string) => fireEvent.change(screen.getByLabelText(l), { target: { value: v } });
-    type('ยอดผลิต PLAN (PN)', '76,580'); type('ยอดผลิต ACTUAL (AS)', '84761');
-    type('Actual Process Cost', '605521'); type('จำนวนคน', '60'); type('Expense รวม', '424000');
-    expect(screen.getByTestId('calc-process')).toHaveTextContent('7.14');
-    expect(screen.getByTestId('calc-head')).toHaveTextContent('1,413');
+    type('ยอดผลิต PLAN (PN)', '10,000'); type('ยอดผลิต ACTUAL (AS)', '9000');
+    type('Actual Process Cost', '72000'); type('จำนวนคน', '8'); type('Expense รวม', '45000');
+    expect(screen.getByTestId('calc-process')).toHaveTextContent('8.00');
+    expect(screen.getByTestId('calc-head')).toHaveTextContent('1,125');
     expect(screen.getByTestId('calc-expense')).toHaveTextContent('5.00');
-    expect(screen.getByTestId('calc-prod')).toHaveTextContent('+8,181');
+    expect(screen.getByTestId('calc-prod')).toHaveTextContent('-1,000');
+    type('ยอดผลิตสำหรับ Process THB/Pcs.', '9600');
+    expect(screen.getByTestId('calc-process')).toHaveTextContent('7.50');
+    expect(screen.getByTestId('calc-head')).toHaveTextContent('1,125');
     fireEvent.click(screen.getByRole('button', { name: 'บันทึก' }));
-    await waitFor(() => expect(repo.saveOpsMonth).toHaveBeenCalledWith({ month: '2026-01', prodPlan: 76580, prodActual: 84761, matStd: null, matAct: null,
-      processCost: 605521, headcount: 60, expense: 424000, prodForHead: null }));
+    await waitFor(() => expect(repo.saveOpsMonth).toHaveBeenCalledWith({ month: '2026-01', prodPlan: 10000, prodActual: 9000, matStd: null, matAct: null,
+      processCost: 72000, headcount: 8, expense: 45000, prodForCost: 9600, prodForHead: null }));
     expect(repo.saveCostMonth).toHaveBeenCalled();
   });
   it('loads saved production figures; a month with none saves no production record', async () => {
-    const repo = fakeRepo({ ops: [{ month: '2026-10', prodPlan: 71725, prodActual: 71031, matStd: 47.6, matAct: 47.51, processCost: 745731, headcount: 60, expense: null }] });
+    const repo = fakeRepo({ ops: [{ month: '2026-10', prodPlan: 12000, prodActual: 11500, matStd: 40, matAct: 39.91, processCost: 90000, headcount: 9, expense: null }] });
     render(<RepoContext.Provider value={repo}><EntryCost initialMonth="2026-10" /></RepoContext.Provider>);
-    await waitFor(() => expect(screen.getByLabelText('ยอดผลิต ACTUAL (AS)')).toHaveValue('71031'));
+    await waitFor(() => expect(screen.getByLabelText('ยอดผลิต ACTUAL (AS)')).toHaveValue('11500'));
     expect(screen.getByTestId('calc-mat')).toHaveTextContent('0.09');
     fireEvent.click(screen.getByRole('button', { name: 'เดือนถัดไป' }));
     await waitFor(() => expect(screen.getByLabelText('ยอดผลิต ACTUAL (AS)')).toHaveValue(''));
