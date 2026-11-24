@@ -297,3 +297,29 @@ tr.item-bottom td { padding-top: 4px; }
 @media (max-width: 720px) {
   .entry-stack-rest .lot-counts td input { width: 80px; }
 }
+
+/* Monthly entry: production and cost figures, and what the system computes from them. */
+.ops-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px 18px; margin-top: 6px; }
+.ops-field { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: .9rem; color: var(--ink-2); }
+.ops-field small { font-weight: 400; color: var(--muted, #8a87a6); }
+.ops-field input { width: 100%; text-align: right; }
+.ops-field input::placeholder { text-align: left; font-size: .8rem; }
+.ops-calc { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-top: 18px; padding-top: 16px; border-top: 1px dashed #dcdaea; }
+.ops-calc > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 10px; background: var(--base); }
+.ops-calc span { font-size: .85rem; color: var(--ink-2); }
+.ops-calc b { font-size: 1.35rem; }
+.ops-calc small { color: var(--muted, #8a87a6); font-size: .78rem; }
+.otd-upload { display: inline-flex; align-items: center; min-height: 40px; padding: 8px 16px; }
+.otd-preview { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.otd-good { color: #0f8a52; } .otd-warn { color: #a07800; } .otd-bad { color: var(--bad); }
+
+/* %OTD table: cells coloured by the report's bands. */
+.otd-table td.otd-cell { font-weight: 700; text-align: right; }
+.otd-table td.otd-cell.good { background: #c9f7dd; color: #0b6b3e; }
+.otd-table td.otd-cell.warn { background: #fff1a8; color: #6d5400; }
+.otd-table td.otd-cell.bad { background: #ffd0db; color: #a1123a; }
+.otd-table tr.sum td { font-weight: 700; background: #f3f2fa; }
+.otd-table th.wk { text-align: center; border-left: 1px solid #e6e4f2; }
+.otd-table td.wk-start { border-left: 1px solid #e6e4f2; }
+.otd-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .85rem; color: var(--ink-2); }
+.otd-legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; margin-right: 6px; vertical-align: -2px; }

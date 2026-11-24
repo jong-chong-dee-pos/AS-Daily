@@ -124,3 +124,49 @@ export type Period =
   | { kind: 'year'; year: number }
   | { kind: 'month'; month: string }
   | { kind: 'range'; from: string; to: string };
+
+/**
+ * Monthly production and cost figures entered by hand (YYYY-MM). Per-piece values
+ * (Process THB/Pcs., Pcs./head, Expense/Pcs.) are computed, never stored.
+ */
+export interface OpsMonth {
+  month: string;
+  /** Assembly production volume: PLAN (PN) and ACTUAL (AS), pieces. */
+  prodPlan: number | null;
+  prodActual: number | null;
+  /** Material cost Standard and Actual, as in the "Material cost Variance" report. */
+  matStd: number | null;
+  matAct: number | null;
+  /** Actual process cost for the month, baht. */
+  processCost: number | null;
+  /** Head count used for Pcs./head. */
+  headcount: number | null;
+  /** Total expense for the month, baht (Expense/Pcs.). */
+  expense: number | null;
+  /** Pieces for Pcs./head and Expense/Pcs. when it differs from ACTUAL (AS); blank = ACTUAL. */
+  prodForHead?: number | null;
+}
+
+/** One product group's On-Time Delivery for a month: plan and on-time qty per week W1–W4. */
+export interface OtdRow {
+  group: string;
+  weeks: { plan: number; otd: number }[];
+  /** Total On Plan: total plan and goods received. */
+  onPlan?: { plan: number; gr: number };
+  /** Total, Stock Item and Non Stock Item rows are summaries, not product groups. */
+  kind: 'group' | 'total' | 'stock' | 'nonstock';
+}
+
+/**
+ * %OTD FG 81 for one month (YYYY-MM). Either the full table uploaded from the
+ * "OTD FG81" sheet, or only the monthly %OTD taken from the workbook's history.
+ */
+export interface OtdMonth {
+  month: string;
+  /** Monthly %OTD as a fraction (0.97 = 97%). */
+  pct: number | null;
+  rows?: OtdRow[];
+  /** The sheet's "Update" date (YYYY-MM-DD). */
+  updated?: string;
+  source: 'upload' | 'history';
+}

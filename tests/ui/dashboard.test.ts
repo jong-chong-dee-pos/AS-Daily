@@ -42,3 +42,23 @@ describe('cost not entered', () => {
     expect(missingCostMonths(d, { kind: 'year', year: 2026 }, '2026-11-23')).toHaveLength(10);
   });
 });
+
+import { opsSeries, otdMonthSeries } from '../../src/ui/OpsCharts';
+describe('Dashboard monthly figures and %OTD', () => {
+  const base = { lines: [], workers: [], per: [], lot: [], cost: [], targets: [], summaries: [], prevYear: { lot: [], summaries: [], yearSummary: null } };
+  it('one point per month with computed per-piece values', () => {
+    const d = { ...base, ops: [{ month: '2026-02', prodPlan: 77164, prodActual: 79420, matStd: 64.09, matAct: 63.62, processCost: 710644, headcount: 62, expense: null }] } as ReportData;
+    const s = opsSeries(d, 2026);
+    expect(s).toHaveLength(12);
+    expect(s[1]).toMatchObject({ prodPlan: 77164, prodActual: 79420, prodHead: 79420 });
+    expect(s[1].processPerPcs as number).toBeCloseTo(8.95, 2);
+    expect(s[0].prodActual).toBeNull();
+  });
+  it('%OTD by month starts with the previous Decembers that are known', () => {
+    const d = { ...base, otd: [{ month: '2024-12', pct: 0.71, source: 'history' }, { month: '2026-11', pct: 0.6341, source: 'upload' }] } as ReportData;
+    const s = otdMonthSeries(d, 2026);
+    expect(s.map((p) => p.name).slice(0, 2)).toEqual(['ธ.ค.-24', 'ม.ค.']);
+    expect(s).toHaveLength(13);
+    expect(s.find((p) => p.name === 'พ.ย.')!.pct).toBe(63.4);
+  });
+});

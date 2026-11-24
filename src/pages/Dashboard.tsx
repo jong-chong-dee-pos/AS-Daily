@@ -12,6 +12,8 @@ import { COST_LABEL } from '../ui/labels';
 import { ExportButtons } from '../ui/ExportButtons';
 import { CostChart, LotMonthChart, PerMonthChart, lotMonthSeries, perMonthSeries } from '../ui/ExcelCharts';
 import { Icon } from '../ui/Layout';
+import { OpsCharts, OtdSection } from '../ui/OpsCharts';
+import { opsDerived } from '../calc/ops';
 import { buildCostRows, costTotal } from './ReportCost';
 import { periodName } from './ReportPer';
 import { CostMissing, missingCostMonths } from '../ui/CostMissing';
@@ -58,6 +60,9 @@ export function Dashboard() {
   const yearData = useReportData({ kind: 'year', year });
   const s = data ? summarize(data, period) : null;
   const yd = yearData.data;
+  // The %OTD table shows the chosen month, otherwise the latest uploaded month of the year.
+  const otdMonth = yd?.otd?.filter((m) => m.rows && m.month.startsWith(String(year)) && (period.kind !== 'month' || m.month === period.month))
+    .sort((a, b) => b.month.localeCompare(a.month))[0];
   const title = period.kind === 'month' ? fmtMonth(period.month) : period.kind === 'year' ? `ปี ${period.year}` : `${fmtDate(period.from)} – ${fmtDate(period.to)}`;
   const perOk = s && s.per !== null ? s.per >= s.perTarget : null;
   const lotOk = s && s.lot.pct !== null ? s.lot.pct <= s.lotTarget : null;
@@ -65,11 +70,23 @@ export function Dashboard() {
     ['% PER', s.per, s.perTarget], ['Lot out %', s.lot.pct, s.lotTarget],
     ...s.cost.map((c) => [`Variance ${COST_LABEL[c.cat]}`, c.variance, null])] : [];
 
+  const monthlyRows: (string | number | null)[][] = [[`ยอดผลิต ต้นทุนต่อชิ้น และ %OTD ปี ${year}`],
+    ['เดือน', 'PLAN (PN)', 'ACTUAL (AS)', 'Material Std', 'Material Act', 'Actual Process Cost', 'Process THB/Pcs.', 'Pcs./head', 'Expense/Pcs.', '%OTD'],
+    ...Array.from({ length: 12 }, (_, i) => {
+      const m = `${year}-${String(i + 1).padStart(2, '0')}`;
+      const o = yd?.ops?.find((x) => x.month === m);
+      const c = o ? opsDerived(o) : null;
+      const r2 = (v: number | null | undefined) => (v == null ? null : Math.round(v * 100) / 100);
+      const otd = yd?.otd?.find((x) => x.month === m)?.pct;
+      return [fmtMonth(m), o?.prodPlan ?? null, o?.prodActual ?? null, o?.matStd ?? null, o?.matAct ?? null, o?.processCost ?? null,
+        r2(c?.processPerPcs), r2(c?.pcsPerHead), r2(c?.expensePerPcs), otd == null ? null : Math.round(otd * 1000) / 10];
+    })];
+
   return (
     <section>
       <div className="page-head"><h1>Dashboard</h1><span className="muted">{title}</span></div>
       <FilterBar value={period} onChange={setPeriod}>
-        {s && <ExportButtons name={`Dashboard_${periodName(period)}`} sheets={[{ name: 'สรุป', rows: exportRows }]} target="dashboard" />}
+        {s && <ExportButtons name={`Dashboard_${periodName(period)}`} sheets={[{ name: 'สรุป', rows: exportRows }, { name: 'รายเดือน', rows: monthlyRows }]} target="dashboard" />}
       </FilterBar>
       {error && <p className="error">{error}</p>}
       {!s && !error && <p className="empty">กำลังโหลด…</p>}
@@ -112,6 +129,10 @@ export function Dashboard() {
               <div className="charts">
                 {COST_CATEGORIES.map((cat) => <CostChart key={cat} d={yd} year={year} cat={cat} label={COST_LABEL[cat]} height={360} />)}
               </div>
+              <h2 className="section-title">ยอดผลิตและต้นทุนต่อชิ้น <small>ปี {year}</small></h2>
+              <OpsCharts d={yd} year={year} />
+              <h2 className="section-title">%OTD FG 81 <small>{otdMonth ? `ตารางเดือน ${fmtMonth(otdMonth.month)}` : `ปี ${year}`}</small></h2>
+              <OtdSection d={yd} year={year} month={otdMonth} />
             </>
           )}
         </div>

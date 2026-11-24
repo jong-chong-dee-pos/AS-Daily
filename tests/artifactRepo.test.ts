@@ -118,4 +118,26 @@ describe('artifact repo', () => {
     expect(per.find((e) => e.lineId === 'sl1')).toMatchObject({ workerIds: ['w19'] });
     expect(per.find((e) => e.lineId === 'sl1')!.notes).toBeUndefined();
   });
+
+  it('an uploaded %OTD month replaces only that month; history fills only empty months', async () => {
+    const { db } = memDb();
+    const r = makeArtifactRepo(db);
+    await r.saveOtdUpload({ month: '2026-10', pct: 0.95, rows: [], source: 'upload' }, []);
+    const added = await r.saveOtdUpload({ month: '2026-11', pct: 0.58, rows: [], source: 'upload' },
+      [{ month: '2026-09', pct: 0.91 }, { month: '2026-10', pct: 0.5 }]);
+    expect(added).toEqual(['2026-09']);
+    const all = await r.getOtdMonths('2026-01', '2026-12');
+    expect(all.map((m) => [m.month, m.pct, m.source])).toEqual([['2026-09', 0.91, 'history'], ['2026-10', 0.95, 'upload'], ['2026-11', 0.58, 'upload']]);
+    await r.saveOtdUpload({ month: '2026-11', pct: 0.6, rows: [], source: 'upload' }, []);
+    expect((await r.getOtdMonths('2026-11', '2026-11'))[0].pct).toBe(0.6);
+    expect((await r.getOtdMonths('2026-10', '2026-10'))[0].pct).toBe(0.95);
+  });
+  it('stores monthly production figures one document per month', async () => {
+    const { db, store } = memDb();
+    const r = makeArtifactRepo(db);
+    const o = { month: '2026-11', prodPlan: 70123, prodActual: 42144, matStd: 48.15, matAct: 48.19, processCost: null, headcount: null, expense: null, prodForHead: null };
+    await r.saveOpsMonth(o);
+    expect(store.has('opsMonthly/2026-11')).toBe(true);
+    expect(await r.getOpsMonths('2026-01', '2026-12')).toEqual([expect.objectContaining(o)]);
+  });
 });

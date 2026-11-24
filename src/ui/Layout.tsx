@@ -30,7 +30,7 @@ const GROUPS: { title: string; items: { to: string; label: string; icon: IconNam
   ] },
   { title: 'บันทึกข้อมูล', items: [
     { to: '/entry/daily', label: 'กรอกข้อมูลรายวัน', icon: 'entry', min: 'editor' },
-    { to: '/entry/cost', label: 'กรอกต้นทุน', icon: 'coin', min: 'editor' },
+    { to: '/entry/cost', label: 'กรอกข้อมูลรายเดือน', icon: 'coin', min: 'editor' },
   ] },
   { title: 'ระบบ', items: [{ to: '/settings', label: 'ตั้งค่า', icon: 'gear', min: 'admin' }] },
 ];
