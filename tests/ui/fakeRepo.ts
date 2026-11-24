@@ -1,12 +1,13 @@
 import { vi } from 'vitest';
 import type { Repo } from '../../src/data/repo';
-import type { AbsenceDay, CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Setter, Target, TargetLabels, Worker } from '../../src/types';
+import type { AbsenceDay, CostMonth, OpsMonth, OtdMonth, Line, LotEntry, MonthlySummary, PerEntry, Setter, Target, TargetLabels, Worker } from '../../src/types';
 
 export interface FakeData {
   lines?: Line[]; workers?: Worker[]; per?: PerEntry[]; lot?: LotEntry[];
   cost?: CostMonth[]; targets?: Target[]; summaries?: MonthlySummary[]; absences?: AbsenceDay[];
   setters?: Setter[]; labels?: TargetLabels;
   refs?: Record<string, { count: number; first: string; last: string }>;
+  ops?: OpsMonth[]; otd?: OtdMonth[];
 }
 
 export const L = (id: string, setter: string, extra: Partial<Line> = {}): Line => ({
@@ -34,6 +35,10 @@ export function fakeRepo(d: FakeData = {}) {
     deleteLotDay: vi.fn(async () => {}),
     getCostMonths: vi.fn(async (f: string, t: string) => inRange(d.cost, 'month', f, t)),
     saveCostMonth: vi.fn(async () => {}),
+    getOpsMonths: vi.fn(async (f: string, t: string) => inRange(d.ops, 'month', f, t)),
+    saveOpsMonth: vi.fn(async () => {}),
+    getOtdMonths: vi.fn(async (f: string, t: string) => inRange(d.otd, 'month', f, t)),
+    saveOtdUpload: vi.fn(async (_m: OtdMonth, h: { month: string }[]) => h.map((x) => x.month)),
     getMonthlySummaries: vi.fn(async (f: string, t: string) => inRange(d.summaries, 'month', f, t)),
     getAbsences: vi.fn(async (f: string, t: string) => inRange(d.absences, 'date', f, t)),
     saveAbsenceDay: vi.fn(async () => {}),

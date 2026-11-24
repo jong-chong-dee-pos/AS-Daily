@@ -44,6 +44,14 @@ describe('firestore rules', () => {
     await assertSucceeds(setDoc(doc(as('ed'), 'perMonth', '2026-11'), per('ed')));
     await assertFails(setDoc(doc(as('ed'), 'perMonth', '2026-11'), per('ad')));
   });
+  it('monthly production figures and %OTD: editors write stamped, viewers only read', async () => {
+    for (const col of ['opsMonthly', 'otdMonthly']) {
+      await assertSucceeds(setDoc(doc(as('ed'), col, '2026-11'), { month: '2026-11', updatedBy: 'ed' }));
+      await assertFails(setDoc(doc(as('ed'), col, '2026-10'), { month: '2026-10', updatedBy: 'ad' }));
+      await assertFails(setDoc(doc(as('vw'), col, '2026-09'), { month: '2026-09', updatedBy: 'vw' }));
+      await assertSucceeds(getDoc(doc(as('vw'), col, '2026-11')));
+    }
+  });
   it('editor cannot change settings or accounts; admin can', async () => {
     for (const c of ['lines', 'targets', 'users', 'workers']) {
       await assertFails(setDoc(doc(as('ed'), c, 'x'), { a: 1 }));

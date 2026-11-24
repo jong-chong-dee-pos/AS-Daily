@@ -20,6 +20,8 @@ service cloud.firestore {
     match /lotMonth/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
     match /absenceMonth/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
     match /costMonthly/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
+    match /opsMonthly/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
+    match /otdMonthly/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
     match /images/{id} { allow create, update: if isEditor() && stamped() && request.resource.data.data.size() < 900000; allow delete: if isEditor(); }
 
     // Settings and accounts: admins only.

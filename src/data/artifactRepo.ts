@@ -1,4 +1,4 @@
-import type { AppUser, Role, Absence, AbsenceDay, CostMonth, Line, LotEntry, MonthlySummary, PerEntry, Setter, Target, TargetLabels, Worker } from '../types';
+import type { AppUser, Role, Absence, AbsenceDay, CostMonth, OpsMonth, OtdMonth, Line, LotEntry, MonthlySummary, PerEntry, Setter, Target, TargetLabels, Worker } from '../types';
 
 /** The subset of the Claude artifact `db` capability this app uses. */
 export interface ArtifactDocSnap { id: string; exists: boolean; data(): Record<string, unknown> | undefined }
@@ -173,6 +173,25 @@ export function makeArtifactRepo(db: ArtifactDb, uploadImage?: (f: Blob) => Prom
 
     getCostMonths: (from: string, to: string) => between<CostMonth>('costMonthly', from, to),
     saveCostMonth: (c: CostMonth) => db.doc(`costMonthly/${c.month}`).set({ ...c, ...stamp() }),
+    getOpsMonths: (from: string, to: string) => between<OpsMonth>('opsMonthly', from, to),
+    saveOpsMonth: (o: OpsMonth) => db.doc(`opsMonthly/${o.month}`).set({ ...o, ...stamp() }),
+    getOtdMonths: (from: string, to: string) => between<OtdMonth>('otdMonthly', from, to),
+    /**
+     * Saves an uploaded %OTD month (replacing only that month) and fills the monthly
+     * %OTD of other months from the workbook's history, but never over a month that
+     * already has a value.
+     */
+    async saveOtdUpload(month: OtdMonth, history: { month: string; pct: number }[]): Promise<string[]> {
+      await db.doc(`otdMonthly/${month.month}`).set({ ...month, ...stamp() });
+      const added: string[] = [];
+      const have = new Set((await between<OtdMonth>('otdMonthly', '0000-00', '9999-99')).filter((m) => m.pct != null).map((m) => m.month));
+      for (const h of history) {
+        if (h.month === month.month || have.has(h.month)) continue;
+        await db.doc(`otdMonthly/${h.month}`).set({ month: h.month, pct: h.pct, source: 'history', ...stamp() });
+        added.push(h.month);
+      }
+      return added;
+    },
     getMonthlySummaries: (from: string, to: string) => between<MonthlySummary>('monthlySummary', from, to),
 
     saveLine: (l: Line) => db.doc(`lines/${l.id}`).set({ ...strip(l), ...stamp() }),
