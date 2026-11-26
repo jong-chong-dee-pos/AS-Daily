@@ -49,18 +49,18 @@ describe('access per work area', () => {
 });
 
 describe('work-area chooser', () => {
-  it('shows Assembly as a link and Part Warehouse as Coming soon', () => {
+  it('shows Assembly as a link and Part Warehouse closed for users without its access', () => {
     renderAt('/', U('viewer'));
     expect(screen.getByRole('heading', { name: 'เลือกพื้นที่งาน' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Assembly/ })).toHaveAttribute('href', '/assembly');
     expect(screen.queryByRole('link', { name: /Part Warehouse/ })).toBeNull();
-    expect(screen.getByText('Coming soon')).toBeInTheDocument();
+    expect(screen.queryByText('Coming soon')).toBeNull();
     expect(screen.queryByText(/จัดการผู้ใช้/)).toBeNull();
   });
   it('a user without Assembly access sees it but cannot open it', () => {
     renderAt('/', U('viewer', { assembly: 'none' }));
     expect(screen.queryByRole('link', { name: /Assembly/ })).toBeNull();
-    expect(screen.getByText('ไม่มีสิทธิ์เข้าถึง ติดต่อผู้ดูแลระบบ')).toBeInTheDocument();
+    expect(screen.getAllByText('ไม่มีสิทธิ์เข้าถึง ติดต่อผู้ดูแลระบบ')).toHaveLength(2);
   });
   it('admins get a link to the users and permissions page', () => {
     renderAt('/', U('admin'));
@@ -77,7 +77,7 @@ describe('work-area chooser', () => {
 });
 
 describe('work-area switcher', () => {
-  it('lists the areas, Part Warehouse disabled, and goes back to the chooser', () => {
+  it('lists the areas, Part Warehouse disabled without access, and goes back to the chooser', () => {
     renderAt('/assembly/report/per', U('viewer'));
     const btn = screen.getByRole('button', { name: /พื้นที่งาน: Assembly/ });
     fireEvent.click(btn);

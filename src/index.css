@@ -385,3 +385,17 @@ a.area-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 
 .section-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 36px 0 14px; }
 .section-row .section-title { margin: 0; }
+
+/* ---------- Part Warehouse ---------- */
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: 0; }
+.pw-sum { justify-content: flex-end; }
+.pw-sum b { font-family: var(--font-num); font-size: 1.2rem; }
+.pw-dash .chart { margin-bottom: 18px; }
+.pw-plan-head { display: flex; justify-content: flex-end; margin: 4px 0 8px; }
+.pw-totals { padding: 0 16px 12px; }
+.pw-missing { width: 100%; max-width: 560px; border-collapse: collapse; }
+.pw-missing th, .pw-missing td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--hair); }
+.pw-missing th.num, .pw-missing td.num { text-align: right; }
+.pw-missing td:first-child { width: 36px; color: var(--ink-3); }
+.pw-missing input:not([inputmode]) { width: 100%; min-width: 140px; text-align: left; }
+.pw-plan-table tr.current td { background: var(--accent-soft); }

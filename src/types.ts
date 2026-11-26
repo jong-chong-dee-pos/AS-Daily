@@ -180,3 +180,76 @@ export interface OtdMonth {
   updated?: string;
   source: 'upload' | 'history';
 }
+
+// ---------------- Part Warehouse ----------------
+
+/** Stock value by how long ago a part was last used (million baht), as in the Turn Over charts. */
+export const AGE_BUCKETS = ['lt2', 'm2to6', 'm6to12', 'gt12', 'noUsage'] as const;
+export type AgeBucket = typeof AGE_BUCKETS[number];
+export type Buckets = Record<AgeBucket, number | null>;
+
+/** Product groups of the daily assembly plan, in the chart's stacking order. */
+export const PLAN_GROUPS = ['singleLever', 'flushValve', 'auto', 'laser', 'sensor', 'skinPack', 'sparePart', 'shower', 'package', 'manual'] as const;
+export type PlanGroup = typeof PLAN_GROUPS[number];
+
+export interface MissingPart { partNo: string; qty: number | null }
+
+/** Everything Part Warehouse enters once a month (areas/partWarehouse/monthly/YYYY-MM). */
+export interface PwMonth {
+  month: string;
+  /** Turn Over: Purchase Part, by age. Their sum is PUR in "Inventory Purchaser Part & Inhouse". */
+  pur: Buckets;
+  /** Turn Over: Inhouse, by age. Their sum is WIP. */
+  inh: Buckets;
+  /** Missing parts of the month; the chart counts the rows. */
+  missing: MissingPart[];
+  /** Months imported from the old charts have only the count, not the list. */
+  missingCount?: number | null;
+  /** Stock Diff (Amt), Pur & Wip. */
+  stockDiff: number | null;
+  /** Plan Count: planned and actual items counted. */
+  countPlan: number | null;
+  countActual: number | null;
+  /** % Performance of the issuing team and the stock-count team, typed as a percentage. */
+  perIssue: number | null;
+  perCount: number | null;
+}
+
+/** One day of the assembly plan (areas/partWarehouse/plan/YYYY-MM holds a month of days). */
+export interface PwPlanDay { date: string; qty: Partial<Record<PlanGroup, number>> }
+
+/** Targets the admin sets in Part Warehouse settings. */
+export interface PwTargets {
+  /** Missing Part No. & Qty: at most this many parts a month. */
+  missingMax: number;
+  /** Stock Diff (Amt) target. */
+  stockDiff: number;
+  /** % Performance target of both teams. */
+  per: number;
+  /** "Target Item" line of the stock-count team. */
+  countItem: number;
+  /** Manpower line of the daily assembly plan. */
+  manpower: number;
+}
+
+/**
+ * The columns before January on the charts: earlier year-ends and averages. Each carries
+ * the target that applied then, so the lines show the old targets as in the original charts.
+ */
+export interface PwBaseline {
+  id: string;
+  label: string;
+  /** Which charts show the column: inventory (Turn Over and Inventory), yearly (Missing Part, Stock Diff), avg (% Performance). */
+  kind: 'inventory' | 'yearly' | 'avg';
+  pur?: Buckets;
+  inh?: Buckets;
+  missingCount?: number | null;
+  missingMax?: number | null;
+  stockDiff?: number | null;
+  stockDiffTarget?: number | null;
+  perIssue?: number | null;
+  perIssueTarget?: number | null;
+  perCount?: number | null;
+  perCountTarget?: number | null;
+  countItemTarget?: number | null;
+}

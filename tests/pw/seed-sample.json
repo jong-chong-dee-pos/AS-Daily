@@ -1,0 +1,8 @@
+[
+ {"path": "areas/partWarehouse/settings/baselines", "data": {"forYear": 2026, "columns": [
+   {"id": "inv-2025-12", "label": "Dec'2025", "kind": "inventory", "pur": {"lt2": 1, "m2to6": 2, "m6to12": 3, "gt12": 4, "noUsage": 5}, "inh": {"lt2": 1, "m2to6": 1, "m6to12": 1, "gt12": 1, "noUsage": 1}},
+   {"id": "avg25", "label": "AVG-25", "kind": "avg", "perIssue": 100, "perIssueTarget": 105, "perCount": 110, "perCountTarget": 115, "countItemTarget": 60}]}},
+ {"path": "areas/partWarehouse/settings/targets", "data": {"missingMax": 4, "stockDiff": 0.2, "per": 115, "countItem": 70, "manpower": 350}},
+ {"path": "areas/partWarehouse/monthly/2026-01", "data": {"month": "2026-01", "pur": {"lt2": 1, "m2to6": 1, "m6to12": 1, "gt12": 1, "noUsage": 1}, "inh": {"lt2": 2, "m2to6": null, "m6to12": null, "gt12": null, "noUsage": null}, "missing": [], "missingCount": 3, "stockDiff": 0.01, "countPlan": 100, "countActual": 90, "perIssue": 118, "perCount": 125}},
+ {"path": "areas/partWarehouse/monthly/2026-02", "data": {"month": "2026-02", "pur": {"lt2": 2, "m2to6": 2, "m6to12": 2, "gt12": 2, "noUsage": 2}, "inh": {"lt2": 1, "m2to6": 1, "m6to12": 1, "gt12": 1, "noUsage": 1}, "missing": [], "stockDiff": null, "countPlan": 80, "countActual": null, "perIssue": null, "perCount": null}}
+]

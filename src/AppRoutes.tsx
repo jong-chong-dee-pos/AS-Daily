@@ -10,6 +10,10 @@ import { ReportCost } from './pages/ReportCost';
 import { EntryDaily } from './pages/EntryDaily';
 import { EntryCost } from './pages/EntryCost';
 import { Settings } from './pages/Settings';
+import { PwDashboard } from './pages/pw/PwDashboard';
+import { PwEntryDaily } from './pages/pw/PwEntryDaily';
+import { PwEntryMonthly } from './pages/pw/PwEntryMonthly';
+import { PwSettings } from './pages/pw/PwSettings';
 
 /**
  * "/" is the work-area chooser. Every Assembly module lives under /assembly; links saved
@@ -28,6 +32,13 @@ export function AppRoutes({ manageUsers = true }: { manageUsers?: boolean }) {
         <Route path="entry/daily" element={<RequireArea area="assembly" min="edit"><EntryDailyRoute /></RequireArea>} />
         <Route path="entry/cost" element={<RequireArea area="assembly" min="edit"><EntryCostRoute /></RequireArea>} />
         <Route path="settings" element={<RequireRole min="admin"><SettingsRoute manageUsers={manageUsers} /></RequireRole>} />
+        <Route path="*" element={<p className="empty">ไม่พบหน้านี้</p>} />
+      </Route>
+      <Route path="part-warehouse" element={<Layout area="partWarehouse" />}>
+        <Route index element={<PwDashboard />} />
+        <Route path="entry/daily" element={<RequireArea area="partWarehouse" min="edit"><PwEntryDaily /></RequireArea>} />
+        <Route path="entry/monthly" element={<RequireArea area="partWarehouse" min="edit"><PwEntryMonthly /></RequireArea>} />
+        <Route path="settings" element={<RequireRole min="admin"><PwSettings manageUsers={manageUsers} /></RequireRole>} />
         <Route path="*" element={<p className="empty">ไม่พบหน้านี้</p>} />
       </Route>
       <Route path="report/*" element={<ToAssembly />} />

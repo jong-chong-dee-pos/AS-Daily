@@ -104,4 +104,18 @@ describe('firestore rules', () => {
     await assertFails(setDoc(doc(as('vw'), 'users', 'vw'), { name: 'vw', email: 'vw@x', role: 'viewer', areas: { assembly: 'edit' } }));
     await assertFails(setDoc(doc(as('pw'), 'users', 'pw'), { name: 'pw', email: 'pw@x', role: 'editor', areas: { assembly: 'edit', partWarehouse: 'edit' } }));
   });
+
+  it('Part Warehouse targets and earlier-year columns: its users read, only admins change', async () => {
+    const t = (uid: string) => doc(as(uid), 'areas', 'partWarehouse', 'settings', 'targets');
+    await assertSucceeds(setDoc(t('ad'), { missingMax: 6, updatedBy: 'ad' }));
+    await assertFails(setDoc(t('pw'), { missingMax: 9, updatedBy: 'pw' })); // data-entry user of the area
+    await assertSucceeds(getDoc(t('pw')));
+    await assertFails(getDoc(t('vw')));
+  });
+  it('Part Warehouse monthly figures and plan: its data-entry users write stamped', async () => {
+    for (const col of ['monthly', 'plan']) {
+      await assertSucceeds(setDoc(doc(as('pw'), 'areas', 'partWarehouse', col, '2026-11'), { month: '2026-11', updatedBy: 'pw' }));
+      await assertFails(setDoc(doc(as('ae'), 'areas', 'partWarehouse', col, '2026-11'), { month: '2026-11', updatedBy: 'ae' }));
+    }
+  });
 });

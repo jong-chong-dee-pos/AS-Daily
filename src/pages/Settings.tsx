@@ -439,6 +439,8 @@ export function UsersSection() {
 }
 
 type ExportDoc = { path: string; data: Record<string, unknown> };
+/** Assembly documents (collection/id) and Part Warehouse documents (areas/partWarehouse/collection/id). */
+const IMPORTABLE = /^(?:[A-Za-z]+|areas\/partWarehouse\/(?:monthly|plan|settings))\/[^/]+$/;
 /** Loads the JSON exported from the old Claude page into this database. */
 export function ImportSection() {
   const repo = useRepo();
@@ -452,7 +454,7 @@ export function ImportSection() {
       const text = await new Promise<string>((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = bad; r.readAsText(f); });
       const raw = JSON.parse(text);
       const list = (Array.isArray(raw) ? raw : []).filter((d): d is ExportDoc =>
-        d && typeof d.path === 'string' && /^[A-Za-z]+\/[^/]+$/.test(d.path) && d.data && typeof d.data === 'object' && !d.path.startsWith('users/'));
+        d && typeof d.path === 'string' && IMPORTABLE.test(d.path) && d.data && typeof d.data === 'object' && !d.path.startsWith('users/'));
       if (!list.length) { setStatus('ไฟล์นี้ไม่มีข้อมูลที่นำเข้าได้'); return; }
       setDocs(list);
     } catch { setStatus('อ่านไฟล์ไม่ได้ ต้องเป็นไฟล์ .json ที่ได้รับ'); }
@@ -475,7 +477,9 @@ export function ImportSection() {
       {docs && (
         <p style={{ marginTop: 12 }}>พบ {docs.length} รายการ: {([['lines', 'U-Line'], ['workers', 'พนักงาน'], ['perMonth', '% PER (เดือน)'],
           ['lotMonth', 'Lot out (เดือน)'], ['costMonthly', 'ต้นทุน (เดือน)'], ['opsMonthly', 'ยอดผลิตและต้นทุนการผลิต (เดือน)'], ['otdMonthly', '%OTD (เดือน)'],
-          ['targets', 'เป้า'], ['monthlySummary', 'สรุปย้อนหลัง']] as const).filter(([c]) => count(c) > 0).map(([c, l]) => `${l} ${count(c)}`).join(', ')}</p>
+          ['targets', 'เป้า'], ['monthlySummary', 'สรุปย้อนหลัง'],
+          ['areas/partWarehouse/monthly', 'Part Warehouse รายเดือน'], ['areas/partWarehouse/plan', 'Part Warehouse แผนประกอบ (เดือน)'],
+          ['areas/partWarehouse/settings', 'Part Warehouse ข้อมูลปีก่อนและเป้า']] as const).filter(([c]) => count(c) > 0).map(([c, l]) => `${l} ${count(c)}`).join(', ')}</p>
       )}
       <div className="actions">
         <button type="button" disabled={!docs || busy} onClick={run}>นำเข้า</button>

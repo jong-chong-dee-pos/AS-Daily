@@ -39,6 +39,24 @@ describe('repo', () => {
     expect(await r.getLotEntries('2026-10-01', '2026-10-31')).toEqual([{ date: '2026-10-02', sent: 9, patrol: 0, fg: 1, items: [] }]);
     expect((await r.listLines()).map((l) => l.name)).toEqual(['SL1']);
   });
+  it('imports the Part Warehouse seed file and a Part Warehouse user reads it back', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore() as unknown as Firestore;
+      await setDoc(doc(db, 'users', 'ad'), { name: 'ad', email: 'a@x', role: 'admin' });
+      await setDoc(doc(db, 'users', 'pw'), { name: 'pw', email: 'p@x', role: 'editor', areas: { assembly: 'none', partWarehouse: 'edit' } });
+    });
+    const r = makeRepo(env.authenticatedContext('ad').firestore() as unknown as Firestore, () => 'ad');
+    const docs = JSON.parse(readFileSync('tests/pw/seed-sample.json', 'utf8'));
+    await r.importDocs!(docs);
+    const p = makeRepo(env.authenticatedContext('pw').firestore() as unknown as Firestore, () => 'pw');
+    expect((await p.getPwMonths('2026-01', '2026-12')).map((m) => m.month)).toEqual(['2026-01', '2026-02']);
+    expect((await p.getPwBaselines()).columns.map((c) => c.label)).toEqual(['Dec\'2025', 'AVG-25']);
+    expect((await p.getPwTargets()).manpower).toBe(350);
+    await p.savePwPlanDay({ date: '2026-02-02', qty: { auto: 12 } });
+    expect(await p.getPwPlan('2026-02')).toEqual([{ date: '2026-02-02', qty: { auto: 12 } }]);
+    await expect(p.savePwTargets({ missingMax: 1, stockDiff: 1, per: 1, countItem: 1, manpower: 1 })).rejects.toThrow();
+    await expect(p.getLotEntries('2026-10-01', '2026-10-31')).rejects.toThrow(); // no Assembly access
+  });
   it('saving the same day twice overwrites, no duplicates', async () => {
     const r = repo();
     await r.savePerDay('2026-11-03', [{ date: '2026-11-03', lineId: 'sl1', workerIds: ['w1'], per: 100 }]);

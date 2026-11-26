@@ -39,10 +39,15 @@ service cloud.firestore {
 
     // ---------- Other work areas: areas/{area}/{collection}/{id} ----------
     // Each new area (Part Warehouse …) keeps its own data here, apart from Assembly.
+    // Part Warehouse: monthly figures (monthly/YYYY-MM) and the daily plan (plan/YYYY-MM).
     match /areas/{area}/{collection}/{id} {
       allow read: if area != 'assembly' && canView(area);
-      allow create, update: if area != 'assembly' && canEdit(area) && stamped();
-      allow delete: if area != 'assembly' && canEdit(area);
+      allow create, update: if area != 'assembly' && collection != 'settings' && canEdit(area) && stamped();
+      allow delete: if area != 'assembly' && collection != 'settings' && canEdit(area);
+    }
+    // An area's targets and earlier-year columns: read by its users, changed by admins only.
+    match /areas/{area}/settings/{id} {
+      allow write: if area != 'assembly' && isAdmin();
     }
 
     // Accounts: each user reads their own (the app needs it to sign in); admins manage all.
