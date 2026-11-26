@@ -8,6 +8,8 @@ export default defineConfig({
   build: {
     outDir: 'dist-artifact',
     chunkSizeWarningLimit: 4000,
+    // The single-file page has no folder beside it: pictures go in as data URLs.
+    assetsInlineLimit: 200000,
     rollupOptions: { input: 'artifact.html', output: { inlineDynamicImports: true } },
   },
 });
