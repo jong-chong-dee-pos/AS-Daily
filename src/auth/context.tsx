@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
-import type { AppUser, Role } from '../types';
+import type { AppUser, AreaId, Role } from '../types';
+import { accessOf } from '../areas';
 
 export interface AuthState {
   user: AppUser | null;
@@ -15,6 +16,15 @@ export const useAuth = () => useContext(AuthContext);
 
 const RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
 export const atLeast = (role: Role | undefined, min: Role) => role !== undefined && RANK[role] >= RANK[min];
+
+/** Shows the page only to users with at least `min` access to the work area. */
+export function RequireArea({ area, min, children }: { area: AreaId; min: 'view' | 'edit'; children: React.ReactNode }) {
+  const { user } = useAuth();
+  const a = accessOf(user, area);
+  if (a === 'none') return <p className="empty">คุณยังไม่มีสิทธิ์เข้าพื้นที่งานนี้ ติดต่อผู้ดูแลระบบ</p>;
+  if (min === 'edit' && a !== 'edit') return <p className="empty">หน้านี้สำหรับผู้กรอกข้อมูลเท่านั้น</p>;
+  return <>{children}</>;
+}
 
 export function RequireRole({ min, children }: { min: Role; children: React.ReactNode }) {
   const { user } = useAuth();

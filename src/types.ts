@@ -1,10 +1,18 @@
 export type Role = 'admin' | 'editor' | 'viewer';
 
+/** A department with its own modules and data (see src/areas.ts). */
+export type AreaId = 'assembly' | 'partWarehouse';
+/** What a user may do in one work area. */
+export type AreaAccess = 'none' | 'view' | 'edit';
+
 export interface AppUser {
   uid: string;
   name: string;
   email: string;
+  /** 'admin' = system admin: settings, users and permissions, full access to every area. */
   role: Role;
+  /** Access per work area; a missing entry falls back to the role (see accessOf). */
+  areas?: Partial<Record<AreaId, AreaAccess>>;
 }
 
 export interface Line {

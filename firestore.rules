@@ -2,35 +2,53 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function role() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
+    function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
     function hasRole() { return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)); }
-    function isAdmin() { return hasRole() && role() == 'admin'; }
-    function isEditor() { return hasRole() && role() in ['admin', 'editor']; }
+    function isAdmin() { return hasRole() && me().role == 'admin'; }
     function stamped() { return request.resource.data.updatedBy == request.auth.uid; }
 
-    // Any user with a role may read everything, including costs.
-    match /{collection}/{id} {
-      allow read: if hasRole();
+    // Access per work area: 'none', 'view' or 'edit', from users/{uid}.areas.
+    // System admins may do everything. A user without an entry for Assembly keeps the access
+    // the old role gave (viewer = view, editor = edit); other areas start closed.
+    // Keep in step with accessOf() in src/areas.ts.
+    function level(area) {
+      let u = me();
+      return u.role == 'admin' ? 'edit'
+        : u.get('areas', {}).get(area, area == 'assembly' ? (u.role == 'viewer' ? 'view' : 'edit') : 'none');
+    }
+    function canView(area) { return hasRole() && level(area) in ['view', 'edit']; }
+    function canEdit(area) { return hasRole() && level(area) == 'edit'; }
+
+    // ---------- Assembly: the original top-level collections, unchanged ----------
+    // Data entry, one document per month (perMonth/YYYY-MM …), stamped with the writer's uid.
+    match /perMonth/{id} { allow read: if canView('assembly'); allow create, update: if canEdit('assembly') && stamped(); allow delete: if canEdit('assembly'); }
+    match /lotMonth/{id} { allow read: if canView('assembly'); allow create, update: if canEdit('assembly') && stamped(); allow delete: if canEdit('assembly'); }
+    match /absenceMonth/{id} { allow read: if canView('assembly'); allow create, update: if canEdit('assembly') && stamped(); allow delete: if canEdit('assembly'); }
+    match /costMonthly/{id} { allow read: if canView('assembly'); allow create, update: if canEdit('assembly') && stamped(); allow delete: if canEdit('assembly'); }
+    match /opsMonthly/{id} { allow read: if canView('assembly'); allow create, update: if canEdit('assembly') && stamped(); allow delete: if canEdit('assembly'); }
+    match /otdMonthly/{id} { allow read: if canView('assembly'); allow create, update: if canEdit('assembly') && stamped(); allow delete: if canEdit('assembly'); }
+    match /images/{id} { allow read: if canView('assembly'); allow create, update: if canEdit('assembly') && stamped() && request.resource.data.data.size() < 900000; allow delete: if canEdit('assembly'); }
+
+    // Assembly settings: read by anyone who sees Assembly, changed by admins only.
+    match /lines/{id} { allow read: if canView('assembly'); allow write: if isAdmin(); }
+    match /workers/{id} { allow read: if canView('assembly'); allow write: if isAdmin(); }
+    match /targets/{id} { allow read: if canView('assembly'); allow write: if isAdmin(); }
+    match /setters/{id} { allow read: if canView('assembly'); allow write: if isAdmin(); }
+    match /settings/{id} { allow read: if canView('assembly'); allow write: if isAdmin(); }
+    match /monthlySummary/{id} { allow read: if canView('assembly'); allow write: if isAdmin(); }
+
+    // ---------- Other work areas: areas/{area}/{collection}/{id} ----------
+    // Each new area (Part Warehouse …) keeps its own data here, apart from Assembly.
+    match /areas/{area}/{collection}/{id} {
+      allow read: if area != 'assembly' && canView(area);
+      allow create, update: if area != 'assembly' && canEdit(area) && stamped();
+      allow delete: if area != 'assembly' && canEdit(area);
     }
 
-    // Data entry, one document per month (perMonth/YYYY-MM …), stamped with the writer's uid.
-    match /perMonth/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
-    match /lotMonth/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
-    match /absenceMonth/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
-    match /costMonthly/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
-    match /opsMonthly/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
-    match /otdMonthly/{id} { allow create, update: if isEditor() && stamped(); allow delete: if isEditor(); }
-    match /images/{id} { allow create, update: if isEditor() && stamped() && request.resource.data.data.size() < 900000; allow delete: if isEditor(); }
-
-    // Settings and accounts: admins only.
-    match /lines/{id} { allow write: if isAdmin(); }
-    match /workers/{id} { allow write: if isAdmin(); }
-    match /targets/{id} { allow write: if isAdmin(); }
-    match /setters/{id} { allow write: if isAdmin(); }
-    match /settings/{id} { allow write: if isAdmin(); }
-    match /monthlySummary/{id} { allow write: if isAdmin(); }
-    match /users/{uid} { allow write: if isAdmin(); }
+    // Accounts: each user reads their own (the app needs it to sign in); admins manage all.
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isAdmin();
+    }
   }
 }

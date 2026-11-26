@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { RepoContext } from '../../src/data/RepoContext';
+import { AuthContext } from '../../src/auth/context';
 import { ImportSection, LinesSection, SettersSection, SummarySection, UsersSection, WorkersSection } from '../../src/pages/Settings';
 import { fakeRepo, L } from './fakeRepo';
 
@@ -78,7 +79,39 @@ describe('Settings users', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('รหัสผ่านอย่างน้อย 6 ตัวอักษร');
     fireEvent.change(screen.getByLabelText('รหัสผ่านเริ่มต้น'), { target: { value: '123456' } });
     fireEvent.click(screen.getByRole('button', { name: /^บันทึก/ }));
-    await waitFor(() => expect(repo.createUser).toHaveBeenCalledWith({ name: 'สมชาย', email: 'som@x.com', role: 'viewer' }, '123456'));
+    await waitFor(() => expect(repo.createUser).toHaveBeenCalledWith(
+      { name: 'สมชาย', email: 'som@x.com', role: 'viewer', areas: { assembly: 'view', partWarehouse: 'none' } }, '123456'));
+  });
+  it('shows today\'s access per work area, and saves a change with the matching role', async () => {
+    const repo = fakeRepo({});
+    repo.listUsers = vi.fn(async () => [
+      { uid: 'a1', name: 'แอดมิน', email: 'a@x.com', role: 'admin' as const },
+      { uid: 'v1', name: 'ผู้ดู', email: 'v@x.com', role: 'viewer' as const },
+    ]);
+    render(
+      <AuthContext.Provider value={{ user: { uid: 'a1', name: 'แอดมิน', email: 'a@x.com', role: 'admin' }, noRole: false, loading: false }}>
+        <RepoContext.Provider value={repo}><UsersSection /></RepoContext.Provider>
+      </AuthContext.Provider>,
+    );
+    const asm = await screen.findByLabelText('สิทธิ์ Assembly ผู้ดู');
+    expect(asm).toHaveValue('view'); // no per-area entry yet: follows the old role
+    expect(screen.getByLabelText('สิทธิ์ Part Warehouse ผู้ดู')).toHaveValue('none');
+    expect(screen.queryByLabelText('สิทธิ์ Assembly แอดมิน')).toBeNull(); // admins have every right
+    fireEvent.change(asm, { target: { value: 'edit' } });
+    fireEvent.click(screen.getByRole('button', { name: /^บันทึก/ }));
+    await waitFor(() => expect(repo.saveUser).toHaveBeenCalledWith(
+      { uid: 'v1', name: 'ผู้ดู', email: 'v@x.com', role: 'editor', areas: { assembly: 'edit', partWarehouse: 'none' } }));
+  });
+  it('an admin cannot take away their own admin right', async () => {
+    const repo = fakeRepo({});
+    repo.listUsers = vi.fn(async () => [{ uid: 'a1', name: 'แอดมิน', email: 'a@x.com', role: 'admin' as const }]);
+    render(
+      <AuthContext.Provider value={{ user: { uid: 'a1', name: 'แอดมิน', email: 'a@x.com', role: 'admin' }, noRole: false, loading: false }}>
+        <RepoContext.Provider value={repo}><UsersSection /></RepoContext.Provider>
+      </AuthContext.Provider>,
+    );
+    fireEvent.click(await screen.findByLabelText('ผู้ดูแลระบบ แอดมิน'));
+    expect(screen.getByRole('alert')).toHaveTextContent('เอาสิทธิ์ผู้ดูแลระบบของตัวเองออกไม่ได้');
   });
 });
 
