@@ -63,7 +63,7 @@ export function Layout({ area = 'assembly' }: { area?: AreaId }) {
     <div className="shell">
       <div className="backdrop" aria-hidden="true"><i /><i /><i /></div>
       <aside className="sidebar glass">
-        <div className="brand"><span className="brand-mark">AS</span><span>รายงานประจำวัน</span></div>
+        <div className="brand"><span className="brand-mark">AS</span><span>AS&amp;PWH Report</span></div>
         <AreaSwitcher current={area} />
         <nav aria-label="เมนูหลัก">
           {MENUS[area].map((g) => {
@@ -85,7 +85,7 @@ export function Layout({ area = 'assembly' }: { area?: AreaId }) {
           <div className="who">
             <span className="avatar" aria-hidden="true">{user.name.slice(0, 1)}</span>
             <span className="who-text"><b>{user.name}</b><small>{whoLabel(user, area)}</small></span>
-            {signOut && <button type="button" className="link" onClick={signOut}>ออกจากระบบ</button>}
+            {signOut && <button type="button" className="link" data-leaves onClick={signOut}>ออกจากระบบ</button>}
           </div>
         )}
       </aside>
@@ -137,7 +137,7 @@ export function AreaSwitcher({ current }: { current: AreaId }) {
             );
           })}
           <Link to="/" role="menuitem" className="area-item all" onClick={() => setOpen(false)}>ดูพื้นที่งานทั้งหมด</Link>
-          {signOut && <button type="button" role="menuitem" className="area-item signout" onClick={() => { setOpen(false); void signOut(); }}>ออกจากระบบ</button>}
+          {signOut && <button type="button" role="menuitem" className="area-item signout" data-leaves onClick={() => { setOpen(false); void signOut(); }}>ออกจากระบบ</button>}
         </div>
       )}
     </div>

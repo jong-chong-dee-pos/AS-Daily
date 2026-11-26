@@ -14,7 +14,7 @@ const oct = {
 describe('EntryCost', () => {
   it('loads a month and shows live variance', async () => {
     render(<RepoContext.Provider value={fakeRepo({ cost: [oct] })}><EntryCost initialMonth="2026-10" /></RepoContext.Provider>);
-    await waitFor(() => expect(screen.getByLabelText('Electric Standard')).toHaveValue('26548.43'));
+    await waitFor(() => expect(screen.getByLabelText('Electric Standard')).toHaveValue('26,548.43'));
     expect(screen.getByTestId('var-electric')).toHaveTextContent('-28,046');
     expect(screen.getByTestId('var-electric')).toHaveClass('neg');
     fireEvent.change(screen.getByLabelText('Electric Actual'), { target: { value: '20000' } });
@@ -35,7 +35,7 @@ describe('EntryCost', () => {
   it('saves a note next to the category', async () => {
     const repo = fakeRepo({ cost: [oct] });
     render(<RepoContext.Provider value={repo}><EntryCost initialMonth="2026-10" /></RepoContext.Provider>);
-    await waitFor(() => expect(screen.getByLabelText('Electric Standard')).toHaveValue('26548.43'));
+    await waitFor(() => expect(screen.getByLabelText('Electric Standard')).toHaveValue('26,548.43'));
     fireEvent.change(screen.getByLabelText('หมายเหตุ Electric'), { target: { value: 'แอร์เสีย' } });
     fireEvent.click(screen.getByRole('button', { name: 'บันทึก' }));
     await waitFor(() => expect(repo.saveCostMonth).toHaveBeenCalledWith(expect.objectContaining({ note: { electric: 'แอร์เสีย' } })));
@@ -62,7 +62,7 @@ describe('EntryCost', () => {
   it('loads saved production figures; a month with none saves no production record', async () => {
     const repo = fakeRepo({ ops: [{ month: '2026-10', prodPlan: 12000, prodActual: 11500, matStd: 40, matAct: 39.91, processCost: 90000, headcount: 9, expense: null }] });
     render(<RepoContext.Provider value={repo}><EntryCost initialMonth="2026-10" /></RepoContext.Provider>);
-    await waitFor(() => expect(screen.getByLabelText('ยอดผลิต ACTUAL (AS)')).toHaveValue('11500'));
+    await waitFor(() => expect(screen.getByLabelText('ยอดผลิต ACTUAL (AS)')).toHaveValue('11,500'));
     expect(screen.getByTestId('calc-mat')).toHaveTextContent('0.09');
     fireEvent.click(screen.getByRole('button', { name: 'เดือนถัดไป' }));
     await waitFor(() => expect(screen.getByLabelText('ยอดผลิต ACTUAL (AS)')).toHaveValue(''));

@@ -27,7 +27,7 @@ export function Login() {
       catch { setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง'); }
       finally { setBusy(false); }
     }}>
-      <div className="brand"><span className="brand-mark">AS</span> รายงานประจำวัน</div>
+      <div className="brand"><span className="brand-mark">AS</span> AS&amp;PWH Report</div>
       <label>อีเมล<input id="login-email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
       <label>รหัสผ่าน<input id="login-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
       {error && <p className="error" role="alert">{error}</p>}

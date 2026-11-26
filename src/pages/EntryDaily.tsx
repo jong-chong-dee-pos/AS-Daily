@@ -1,10 +1,11 @@
 import { Photo } from '../ui/Photo';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRepo } from '../data/RepoContext';
 import { ABSENCE_CHOICES, ABSENCE_LABEL, normalizeAbsence, type Absence, type AbsenceReason, type Line, type LotItem, type LotKind, type Worker } from '../types';
 import { workerLabel } from '../ui/labels';
 import { daysInMonth } from '../calc/period';
 import { fmtDate, fmtMonth, todayIso } from '../ui/format';
+import { NextDay, NumInput, useEnterMovesDown, useUnsavedGuard } from '../ui/entryKit';
 
 /** One line on one day: up to two workers, the line's % PER, and a note per worker. */
 interface Row { workerIds: string[]; per: string; notes: string[] }
@@ -72,15 +73,14 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
 
   useEffect(() => { load(date); }, [date, load]);
   useEffect(() => { loadMonth(month); }, [month, loadMonth]);
-  useEffect(() => {
-    if (!dirty) return;
-    const h = (e: BeforeUnloadEvent) => { e.preventDefault(); };
-    window.addEventListener('beforeunload', h);
-    return () => window.removeEventListener('beforeunload', h);
-  }, [dirty]);
+  const page = useRef<HTMLElement>(null);
+  useEnterMovesDown(page);
+  useUnsavedGuard(dirty);
+  // Set after a save, cleared by the next change: offers the next day right where Save was pressed.
+  const [savedDay, setSavedDay] = useState<string | null>(null);
 
   const go = (d: string) => { if (!d || d === date) return; if (dirty) setPending(d); else setDate(d); };
-  const touch = () => { setDirty(true); setStatus(''); };
+  const touch = () => { setDirty(true); setStatus(''); setSavedDay(null); };
   const setRow = (id: string, patch: Partial<Row>) => { setRows((r) => ({ ...r, [id]: { ...r[id], ...patch } })); touch(); };
   const setLotField = (k: keyof typeof lot, v: string) => { setLot((l) => ({ ...l, [k]: v })); touch(); };
   const setItem = (id: string, patch: Partial<LotItem>) => { setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x))); touch(); };
@@ -127,6 +127,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
       await repo.saveAbsenceDay(date, absences.map(({ workerId, reason, note }) => ({ workerId, reason, note: note.trim() })));
       setDirty(false);
       setStatus(`บันทึกข้อมูลวันที่ ${fmtDate(date)} แล้ว`);
+      if (!pending) setSavedDay(date);
       loadMonth(month);
       if (pending) { setDate(pending); setPending(null); }
     } catch {
@@ -186,7 +187,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
   const dow = new Date(`${date}T00:00:00Z`).getUTCDay();
 
   return (
-    <section>
+    <section ref={page}>
       <div className="page-head">
         <h1>กรอกข้อมูลรายวัน</h1>
         <span className="muted">{WEEKDAY[dow]}. {fmtDate(date)} · กรอกแล้ว {filled}/{lines.length} ไลน์</span>
@@ -231,7 +232,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
                       <td>{workerSelect(l.id, 0)}</td>
                       <td>{workerSelect(l.id, 1)}</td>
                       <td className="num">
-                        <input id={`per-${l.id}`} aria-label={`% PER ${l.code}`} inputMode="decimal"
+                        <NumInput id={`per-${l.id}`} aria-label={`% PER ${l.code}`} inputMode="decimal"
                           className={bad(rows[l.id]?.per ?? '') ? 'invalid' : ''}
                           value={rows[l.id]?.per ?? ''} onChange={(e) => setRow(l.id, { per: e.target.value })} />
                       </td>
@@ -256,7 +257,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
               <tbody><tr>
                 {(['sent', 'patrol', 'fg'] as const).map((k) => (
                   <td key={k} className="num">
-                    <input id={`lot-${k}`} aria-label={{ sent: 'Lot ส่งตรวจ', patrol: 'Lot out Patrol', fg: 'Lot out FG' }[k]}
+                    <NumInput id={`lot-${k}`} aria-label={{ sent: 'Lot ส่งตรวจ', patrol: 'Lot out Patrol', fg: 'Lot out FG' }[k]}
                       inputMode="numeric" className={bad(lot[k]) ? 'invalid' : ''} value={lot[k]}
                       onChange={(e) => setLotField(k, e.target.value)} />
                   </td>
@@ -354,6 +355,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
       <div className="actions savebar">
         <button type="button" onClick={save} disabled={!canSave}>บันทึก</button>
         <span className="status" role="status">{status || (dirty ? 'ยังไม่ได้บันทึก' : '')}</span>
+        {savedDay === date && !dirty && <NextDay date={date} onGo={(d) => { setSavedDay(null); setDate(d); }} />}
       </div>
     </section>
   );
