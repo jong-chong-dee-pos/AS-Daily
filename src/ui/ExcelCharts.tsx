@@ -4,7 +4,7 @@ import type { ReportData } from '../data/useReportData';
 import { daysInMonth, monthsIn } from '../calc/period';
 import { mean } from '../calc/per';
 import { monthlyLot, monthlyPer, monthlySentFg, sumLot } from '../calc/monthly';
-import { lotByWeek, lotTotals } from '../calc/lotout';
+import { lotByWeek, lotPct, lotTotals } from '../calc/lotout';
 import { targetFor } from '../calc/cost';
 import type { CostCategory, LotEntry, Target } from '../types';
 import { buildCostRows } from '../pages/ReportCost';
@@ -32,7 +32,7 @@ export function perMonthSeries(d: ReportData, year: number): Point[] {
   return pts;
 }
 
-/** Lot out % by month, then the year and the previous year (sheet "Lot out (Month)_26"). */
+/** Lot out FG % by month, then the year and the previous year (sheet "Lot out (Month)_26"). */
 export function lotMonthSeries(d: ReportData, year: number): Point[] {
   const months = monthsIn({ kind: 'year', year });
   const t = monthlyLot(months, d.lot, d.summaries);
@@ -40,13 +40,13 @@ export function lotMonthSeries(d: ReportData, year: number): Point[] {
   pts.push({ name: String(year), pct: sumLot(t).pct, target: targetFor(d.targets, months[0]).lotOutTarget });
   const y = d.prevYear.yearSummary;
   const prev = y && y.lotSent
-    ? ((y.lotOut ?? 0) / y.lotSent) * 100
+    ? lotPct(y.lotFg ?? y.lotOut ?? 0, y.lotSent)
     : sumLot(monthlyLot(monthsIn({ kind: 'year', year: year - 1 }), d.prevYear.lot, d.prevYear.summaries)).pct;
   pts.push({ name: String(year - 1), pct: prev, target: null });
   return pts;
 }
 
-/** Lot out % for each day of one month (sheet "Lot out (Daily)"). */
+/** Lot out FG % for each day of one month (sheet "Lot out (Daily)"). */
 export function lotDailySeries(lot: LotEntry[], month: string, targets: Target[]): Point[] {
   const target = targetFor(targets, month).lotOutTarget;
   return Array.from({ length: daysInMonth(month) }, (_, i) => {
@@ -193,24 +193,24 @@ export const PerMonthChart = ({ d, year, height }: { d: ReportData; year: number
 const lotOk = (p: Point) => (typeof p.pct === 'number' && typeof p.target === 'number' ? p.pct <= p.target : null);
 
 export const LotMonthChart = ({ d, year, height }: { d: ReportData; year: number; height?: number }) => (
-  <ExcelChart title={`Lot out % รายเดือน ${year}`} data={lotMonthSeries(d, year)} unit="%" height={height} soft={{ color: C.lotSoft, from: 12 }}
+  <ExcelChart title={`Lot out FG % รายเดือน ${year}`} data={lotMonthSeries(d, year)} unit="%" height={height} soft={{ color: C.lotSoft, from: 12 }}
     judge={lotOk}
-    bars={[{ key: 'pct', name: 'Lot out %', color: C.lot, digits: 2 }]}
+    bars={[{ key: 'pct', name: 'Lot out FG %', color: C.lot, digits: 2 }]}
     line={{ key: 'target', name: `${d.labels?.lot ?? 'เป้า'} ≤`, color: C.targetLow, digits: 2 }} />
 );
 
 export const LotDailyChart = ({ lot, month, targets, label }: { lot: LotEntry[]; month: string; targets: Target[]; label: string }) => {
   const data = lotDailySeries(lot, month, targets);
   return (
-    <ExcelChart title={`Lot out % รายวัน ${label}`} sub={avg(data, 'pct', 2, '%')} data={data} unit="%" judge={lotOk}
-      bars={[{ key: 'pct', name: 'Lot out %', color: C.lotDay, digits: 2 }]}
+    <ExcelChart title={`Lot out FG % รายวัน ${label}`} sub={avg(data, 'pct', 2, '%')} data={data} unit="%" judge={lotOk}
+      bars={[{ key: 'pct', name: 'Lot out FG %', color: C.lotDay, digits: 2 }]}
       line={{ key: 'target', name: 'เป้า ≤', color: C.targetLow, digits: 2 }} />
   );
 };
 
 export const LotWeekChart = ({ lot, month, targets, label }: { lot: LotEntry[]; month: string; targets: Target[]; label: string }) => (
-  <ExcelChart title={`Lot out % รายสัปดาห์ ${label}`} data={lotWeekSeries(lot, month, targets)} unit="%" judge={lotOk}
-    bars={[{ key: 'pct', name: 'Lot out %', color: C.lotWeek, digits: 2 }]}
+  <ExcelChart title={`Lot out FG % รายสัปดาห์ ${label}`} data={lotWeekSeries(lot, month, targets)} unit="%" judge={lotOk}
+    bars={[{ key: 'pct', name: 'Lot out FG %', color: C.lotWeek, digits: 2 }]}
     line={{ key: 'target', name: 'เป้า ≤', color: C.targetLow, digits: 2 }} />
 );
 

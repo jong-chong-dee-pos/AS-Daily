@@ -1,6 +1,6 @@
 import type { Line, LotEntry, MonthlySummary, PerEntry } from '../types';
 import { overallAverage } from './per';
-import { lotTotals, type LotTotals } from './lotout';
+import { lotPct, lotTotals, type LotTotals } from './lotout';
 
 /** Overall % PER per month; months without daily entries fall back to imported summaries. */
 export function monthlyPer(months: string[], per: PerEntry[], lines: Line[], summaries: MonthlySummary[]): (number | null)[] {
@@ -20,7 +20,7 @@ export function monthlyLot(months: string[], lot: LotEntry[], summaries: Monthly
     if (!s || s.lotSent === null) return lotTotals([]);
     const out = s.lotOut ?? 0;
     const fg = s.lotFg ?? out;
-    return { sent: s.lotSent, patrol: Math.max(0, out - fg), fg, out, pct: s.lotSent > 0 ? (out / s.lotSent) * 100 : null };
+    return { sent: s.lotSent, patrol: Math.max(0, out - fg), fg, out, pct: lotPct(fg, s.lotSent) };
   });
 }
 
@@ -35,10 +35,10 @@ export function monthlySentFg(months: string[], lot: LotEntry[], summaries: Mont
   });
 }
 
-/** Sum of several LotTotals, percentage recomputed from counts. */
+/** Sum of several LotTotals, percentage (FG / sent) recomputed from counts. */
 export function sumLot(ts: LotTotals[]): LotTotals {
   const sent = ts.reduce((a, t) => a + t.sent, 0);
   const patrol = ts.reduce((a, t) => a + t.patrol, 0);
   const fg = ts.reduce((a, t) => a + t.fg, 0);
-  return { sent, patrol, fg, out: patrol + fg, pct: sent > 0 ? ((patrol + fg) / sent) * 100 : null };
+  return { sent, patrol, fg, out: patrol + fg, pct: lotPct(fg, sent) };
 }

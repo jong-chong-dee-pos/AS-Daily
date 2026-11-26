@@ -73,7 +73,7 @@ export function Dashboard() {
   const perOk = s && s.per !== null ? s.per >= s.perTarget : null;
   const lotOk = s && s.lot.pct !== null ? s.lot.pct <= s.lotTarget : null;
   const exportRows = s ? [[`สรุป ${title}`], ['ตัวชี้วัด', 'ค่า', 'เป้า'],
-    ['% PER', s.per, s.perTarget], ['Lot out %', s.lot.pct, s.lotTarget],
+    ['% PER', s.per, s.perTarget], ['Lot out FG %', s.lot.pct, s.lotTarget],
     ...s.cost.map((c) => [`Variance ${COST_LABEL[c.cat]}`, c.variance, null])] : [];
 
   const monthlyRows: (string | number | null)[][] = [[`ยอดผลิต ต้นทุนต่อชิ้น และ %OTD ปี ${year}`],
@@ -108,10 +108,10 @@ export function Dashboard() {
               <Meter value={s.per} target={s.perTarget} max={Math.max(s.perTarget * 1.4, s.per ?? 0)} ok={perOk} />
             </div>
             <div className="card c-lot">
-              <div className="card-head"><span className="card-icon"><Icon name="lot" /></span><span className="label">Lot out</span></div>
+              <div className="card-head"><span className="card-icon"><Icon name="lot" /></span><span className="label">Lot out FG</span></div>
               <div className="value" data-testid="kpi-lot">{fmtNum(s.lot.pct, 2)}%</div>
               {yd && <Spark values={lotMonthSeries(yd, year).slice(0, 12).map((p) => p.pct)} />}
-              <div className="target">{data?.labels?.lot ?? 'เป้า'} ≤ {fmtNum(s.lotTarget, 2)}% {lotOk !== null && <span className={`pill ${lotOk ? 'ok' : 'no'}`}>{lotOk ? 'ถึงเป้า' : 'ไม่ถึงเป้า'}</span>} <span>{s.lot.out} จาก {fmtNum(s.lot.sent, 0)} Lot</span></div>
+              <div className="target">{data?.labels?.lot ?? 'เป้า'} ≤ {fmtNum(s.lotTarget, 2)}% {lotOk !== null && <span className={`pill ${lotOk ? 'ok' : 'no'}`}>{lotOk ? 'ถึงเป้า' : 'ไม่ถึงเป้า'}</span>} <span>FG {s.lot.fg} จาก {fmtNum(s.lot.sent, 0)} Lot</span></div>
               <Meter value={s.lot.pct} target={s.lotTarget} max={Math.max(s.lotTarget * 3, s.lot.pct ?? 0)} ok={lotOk} />
             </div>
           </div>

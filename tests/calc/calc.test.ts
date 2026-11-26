@@ -3,6 +3,7 @@ import { weekOf } from '../../src/calc/weeks';
 import { datesIn, monthsIn } from '../../src/calc/period';
 import { lineAverage, setterAverage, overallAverage, personAverage } from '../../src/calc/per';
 import { lotTotals, lotByWeek } from '../../src/calc/lotout';
+import { monthlyLot, sumLot } from '../../src/calc/monthly';
 import { variance, targetFor } from '../../src/calc/cost';
 import type { Line, PerEntry, LotEntry } from '../../src/types';
 
@@ -84,6 +85,17 @@ describe('Lot out', () => {
     expect(t.out).toBe(2);
     expect(t.pct).toBeCloseTo(0.9804, 3);
     expect(lotTotals([{ date: '2026-11-01', sent: 0, patrol: 0, fg: 0 }]).pct).toBeNull();
+  });
+  it('Lot out % counts FG only: Patrol is shown but stays out of the percentage', () => {
+    const t = lotTotals([{ date: '2026-11-02', sent: 200, patrol: 1, fg: 1 }, { date: '2026-11-03', sent: 230, patrol: 0, fg: 2 }]);
+    expect(t).toMatchObject({ sent: 430, patrol: 1, fg: 3, out: 4 });
+    expect(t.pct).toBeCloseTo(0.6977, 3); // 3 / 430, not 4 / 430
+    // Imported months: the FG count when it was entered, else the Excel "Lot out" row (which is FG).
+    const [a, b] = monthlyLot(['2026-01', '2026-02'], [], [
+      { month: '2026-01', per: null, lotSent: 500, lotOut: 5, lotFg: 2 }, { month: '2026-02', per: null, lotSent: 400, lotOut: 4 }]);
+    expect(a.pct).toBeCloseTo(0.4, 5);
+    expect(b.pct).toBeCloseTo(1, 5);
+    expect(sumLot([a, b, t]).pct).toBeCloseTo((2 + 4 + 3) / 1330 * 100, 5);
   });
   it('weeks use day ranges', () => {
     const w = lotByWeek(nov, '2026-11');
