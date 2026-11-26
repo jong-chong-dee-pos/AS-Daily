@@ -36,6 +36,9 @@ describe('Excel-style chart series', () => {
     expect(s[12]).toMatchObject({ name: '2026' });
     expect(s[12].pct as number).toBeCloseTo(0.4929, 3);
     expect(s[13].pct as number).toBeCloseTo(0.4699, 3);
+    // Month columns carry their month so a click opens that month's Lot out FG detail; the year columns do not.
+    expect(s[10].month).toBe('2026-11');
+    expect(s[12].month).toBeUndefined();
   });
   it('daily and weekly Lot out % for the month', () => {
     const day = lotDailySeries(d.lot, '2026-11', d.targets);

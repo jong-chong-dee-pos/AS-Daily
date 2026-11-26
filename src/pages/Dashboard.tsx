@@ -1,3 +1,5 @@
+import { useNavigate } from 'react-router-dom';
+import { ap } from '../areas';
 import { useReportData, type ReportData } from '../data/useReportData';
 import { monthsIn } from '../calc/period';
 import { mean, overallAverage } from '../calc/per';
@@ -61,6 +63,7 @@ function Spark({ values }: { values: (number | null | string)[] }) {
 
 export function Dashboard() {
   const [period, setPeriod] = usePeriod();
+  const navigate = useNavigate();
   const year = period.kind === 'year' ? period.year : Number((period.kind === 'month' ? period.month : period.from).slice(0, 4));
   const { data, error } = useReportData(period);
   const yearData = useReportData({ kind: 'year', year });
@@ -130,7 +133,7 @@ export function Dashboard() {
               <h2 className="section-title" id="sec-per">% PER และ Lot out รายเดือน <small>ปี {year}</small></h2>
               <div className="charts">
                 <PerMonthChart d={yd} year={year} height={320} />
-                <LotMonthChart d={yd} year={year} height={320} />
+                <LotMonthChart d={yd} year={year} height={320} onPick={(m) => navigate(ap(`/report/lot/fg?m=${m}`))} />
               </div>
               <h2 className="section-title" id="sec-ops">ยอดผลิตและต้นทุนต่อชิ้น <small>ปี {year}</small></h2>
               <OpsCharts d={yd} year={year} />
