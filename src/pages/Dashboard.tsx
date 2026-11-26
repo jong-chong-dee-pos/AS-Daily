@@ -20,8 +20,8 @@ import { CostMissing, missingCostMonths } from '../ui/CostMissing';
 import { JumpBar, type JumpItem } from '../ui/JumpBar';
 
 const JUMPS: JumpItem[] = [
-  { id: 'sec-summary', label: 'สรุป' }, { id: 'sec-per', label: '% PER / Lot out' }, { id: 'sec-cost', label: 'ต้นทุน' },
-  { id: 'sec-ops', label: 'ยอดผลิต / ต่อชิ้น' }, { id: 'sec-otd', label: '%OTD' },
+  { id: 'sec-summary', label: 'สรุป' }, { id: 'sec-per', label: '% PER / Lot out' }, { id: 'sec-ops', label: 'ยอดผลิต / ต่อชิ้น' },
+  { id: 'sec-otd', label: '%OTD' }, { id: 'sec-cost', label: 'ต้นทุน' },
 ];
 
 /** Progress track with a target tick; `max` sets the scale. */
@@ -132,15 +132,15 @@ export function Dashboard() {
                 <PerMonthChart d={yd} year={year} height={320} />
                 <LotMonthChart d={yd} year={year} height={320} />
               </div>
+              <h2 className="section-title" id="sec-ops">ยอดผลิตและต้นทุนต่อชิ้น <small>ปี {year}</small></h2>
+              <OpsCharts d={yd} year={year} />
+              <h2 className="section-title" id="sec-otd">%OTD FG 81 <small>{otdMonth ? `ตารางเดือน ${fmtMonth(otdMonth.month)}` : `ปี ${year}`}</small></h2>
+              <OtdSection d={yd} year={year} month={otdMonth} />
               <h2 className="section-title" id="sec-cost">ต้นทุนรายเดือน <small>Standard, Actual, Variance ปี {year}</small></h2>
               {/* Full width: three bars a month, each with its value, need the room. */}
               <div className="charts single">
                 {COST_CATEGORIES.map((cat) => <CostChart key={cat} d={yd} year={year} cat={cat} label={COST_LABEL[cat]} height={360} />)}
               </div>
-              <h2 className="section-title" id="sec-ops">ยอดผลิตและต้นทุนต่อชิ้น <small>ปี {year}</small></h2>
-              <OpsCharts d={yd} year={year} />
-              <h2 className="section-title" id="sec-otd">%OTD FG 81 <small>{otdMonth ? `ตารางเดือน ${fmtMonth(otdMonth.month)}` : `ปี ${year}`}</small></h2>
-              <OtdSection d={yd} year={year} month={otdMonth} />
             </>
           )}
         </div>
