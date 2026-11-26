@@ -101,12 +101,12 @@ describe('work-area switcher', () => {
 describe('pages follow the access of the work area', () => {
   it('a view-only user sees no entry menu and cannot open entry pages', () => {
     renderAt('/assembly/entry/daily', U('editor', { assembly: 'view' }));
-    expect(screen.queryByRole('link', { name: 'กรอกข้อมูลรายวัน' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'ข้อมูลรายวัน' })).toBeNull();
     expect(screen.getByText('หน้านี้สำหรับผู้กรอกข้อมูลเท่านั้น')).toBeInTheDocument();
   });
   it('a data-entry user of Assembly gets the entry menu under /assembly', () => {
     renderAt('/assembly', U('viewer', { assembly: 'edit' }));
-    expect(screen.getByRole('link', { name: 'กรอกข้อมูลรายวัน' })).toHaveAttribute('href', '/assembly/entry/daily');
+    expect(screen.getByRole('link', { name: 'ข้อมูลรายวัน' })).toHaveAttribute('href', '/assembly/entry/daily');
     expect(screen.queryByRole('link', { name: 'ตั้งค่า' })).toBeNull();
   });
   it('a user without access to Assembly is stopped at every Assembly page', () => {

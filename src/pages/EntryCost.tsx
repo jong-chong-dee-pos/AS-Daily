@@ -17,10 +17,10 @@ export const OPS_FIELDS: { key: OpsKey; label: string; unit: string; hint?: stri
   { key: 'matStd', label: 'Material cost Standard', unit: '', group: 'Material cost Variance' },
   { key: 'matAct', label: 'Material cost Actual', unit: '', group: 'Material cost Variance' },
   { key: 'processCost', label: 'Actual Process Cost', unit: 'บาท', group: 'Process Cost per pcs' },
-  { key: 'prodForCost', label: 'ยอดผลิตสำหรับ Process THB/Pcs.', unit: 'ชิ้น', hint: 'เว้นว่าง = ใช้ยอด ACTUAL (AS)', group: 'Process Cost per pcs' },
+  { key: 'prodForCost', label: 'ยอดผลิต (Process)', unit: 'ชิ้น', hint: 'เว้นว่าง = ใช้ยอด ACTUAL (AS)', group: 'Process Cost per pcs' },
   { key: 'headcount', label: 'จำนวนคน', unit: 'คน', group: 'Pcs./head และ Expense/Pcs.' },
   { key: 'expense', label: 'Expense รวม', unit: 'บาท', group: 'Pcs./head และ Expense/Pcs.' },
-  { key: 'prodForHead', label: 'ยอดผลิตสำหรับ Pcs./head และ Expense/Pcs.', unit: 'ชิ้น', hint: 'เว้นว่าง = ใช้ยอด ACTUAL (AS)', group: 'Pcs./head และ Expense/Pcs.' },
+  { key: 'prodForHead', label: 'ยอดผลิต (Pcs./head)', unit: 'ชิ้น', hint: 'เว้นว่าง = ใช้ยอด ACTUAL (AS)', group: 'Pcs./head และ Expense/Pcs.' },
 ];
 const OPS_GROUPS = [...new Set(OPS_FIELDS.map((f) => f.group))];
 type OpsVals = Record<OpsKey, string>;

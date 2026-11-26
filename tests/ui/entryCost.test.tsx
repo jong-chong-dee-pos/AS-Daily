@@ -51,7 +51,7 @@ describe('EntryCost', () => {
     expect(screen.getByTestId('calc-head')).toHaveTextContent('1,125');
     expect(screen.getByTestId('calc-expense')).toHaveTextContent('5.00');
     expect(screen.getByTestId('calc-prod')).toHaveTextContent('-1,000');
-    type('ยอดผลิตสำหรับ Process THB/Pcs.', '9600');
+    type('ยอดผลิต (Process)', '9600');
     expect(screen.getByTestId('calc-process')).toHaveTextContent('7.50');
     expect(screen.getByTestId('calc-head')).toHaveTextContent('1,125');
     fireEvent.click(screen.getByRole('button', { name: 'บันทึก' }));

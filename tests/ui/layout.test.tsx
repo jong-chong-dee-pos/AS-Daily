@@ -19,12 +19,12 @@ describe('Layout', () => {
   it('viewer sees reports only', () => {
     renderAs('viewer');
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    expect(screen.queryByText('กรอกข้อมูลรายวัน')).toBeNull();
+    expect(screen.queryByText('ข้อมูลรายวัน')).toBeNull();
     expect(screen.queryByText('ตั้งค่า')).toBeNull();
   });
   it('editor sees entry but not settings', () => {
     renderAs('editor');
-    expect(screen.getByText('กรอกข้อมูลรายวัน')).toBeInTheDocument();
+    expect(screen.getByText('ข้อมูลรายวัน')).toBeInTheDocument();
     expect(screen.queryByText('ตั้งค่า')).toBeNull();
   });
   it('admin sees settings', () => {
