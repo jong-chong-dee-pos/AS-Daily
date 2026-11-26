@@ -15,12 +15,19 @@ const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinit
  * total or a target (`lines`), and the value of each column written above it (`labelKey`).
  * `colorOf` colours single bars by their own value, e.g. red above the MAX line.
  */
-export function PwChart({ title, sub, data, stack, bars, lines = [], labelKey, digits = 0, unit = '', height = 320, colorOf, refLine, xInterval, judged }: {
+/** Notes never touch the drawing: a small dot under the column's name says one is there to hover. */
+export const NOTE_COLOR = '#f08a24';
+
+export function PwChart({ title, sub, data, stack, bars, lines = [], labelKey, digits = 0, unit = '', height = 320, colorOf, refLine, xInterval, judged, notes = [], extra }: {
   title: string; sub?: string; data: PwPoint[]; stack?: PwSeries[]; bars?: PwSeries[]; lines?: (PwSeries & { dashed?: boolean; dots?: boolean })[];
   labelKey?: string; digits?: number; unit?: string; height?: number; colorOf?: (p: PwPoint) => string | undefined;
   refLine?: { y: number; name: string; color: string }; xInterval?: number;
   /** `colorOf` paints met / missed / earlier columns: the legend says so instead of naming the bar. */
   judged?: boolean;
+  /** Point fields holding a note for the tooltip; `label` names the topic when a chart shows two. */
+  notes?: { key: string; label?: string }[];
+  /** More lines for the tooltip, e.g. how the missing parts split. */
+  extra?: (p: PwPoint) => string[];
 }) {
   const narrow = useNarrow();
   const series = [...(stack ?? []), ...(bars ?? [])];
@@ -31,6 +38,8 @@ export function PwChart({ title, sub, data, stack, bars, lines = [], labelKey, d
     ? [{ key: 'ok', name: 'ถึงเป้า', color: PAL.good }, { key: 'miss', name: 'ไม่ถึงเป้า', color: PAL.bad },
       ...(data.some((p) => colorOf?.(p) === PAL.prev) ? [{ key: 'prev', name: 'ปีก่อน / ค่าเฉลี่ย', color: PAL.prev }] : [])]
     : series;
+  const noteOf = (p: PwPoint) => notes.map((n) => ({ label: n.label, text: p[n.key] })).filter((n): n is { label: string | undefined; text: string } => typeof n.text === 'string' && !!n.text.trim());
+  const noted = new Set(data.filter((p) => noteOf(p).length).map((p) => String(p.name)));
   const legend = [...marks.map((s) => ({ ...s, ln: false, dashed: false })), ...lines.map((l) => ({ ...l, ln: true, dashed: !!l.dashed })),
     ...(refLine ? [{ key: 'ref', name: refLine.name, color: refLine.color, ln: true, dashed: true }] : [])];
   const top = (p: PwPoint) => (labelKey ? p[labelKey] : null);
@@ -43,15 +52,16 @@ export function PwChart({ title, sub, data, stack, bars, lines = [], labelKey, d
         <span className="chart-title">{title}{sub && <small>{sub}</small>}</span>
         <span className="chart-legend">
           {legend.map((l) => <span key={l.key}><i className={l.ln ? (l.dashed ? 'ln' : 'ln solid') : undefined} style={l.ln ? { borderTopColor: l.color } : { background: l.color }} />{l.name}</span>)}
+          {noted.size > 0 && <span className="note-legend"><i style={{ background: NOTE_COLOR }} />มีหมายเหตุ (ชี้เพื่ออ่าน)</span>}
         </span>
       </figcaption>
       {!hasData ? <p className="empty" style={{ height: height - 60 }}>ยังไม่มีข้อมูล</p> : (
         <ResponsiveContainer width="100%" height={height}>
           <ComposedChart data={data} margin={{ top: (bars && bars.length > 1) || (labelKey && upright) ? 56 : 26, right: 12, left: 0, bottom: 0 }} barGap={3} barCategoryGap={bars && bars.length > 1 ? '20%' : '30%'}>
             <CartesianGrid stroke="#eeedf6" strokeDasharray="4 4" vertical={false} />
-            <XAxis dataKey="name" tick={<Tick />} height={twoLine ? 40 : 30} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={xInterval ?? (crowded ? Math.ceil(data.length / 6) - 1 : 0)} />
+            <XAxis dataKey="name" tick={<Tick noted={noted} />} height={(twoLine ? 40 : 30) + (noted.size ? 8 : 0)} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={xInterval ?? (crowded ? Math.ceil(data.length / 6) - 1 : 0)} />
             <YAxis tick={AXIS} axisLine={false} tickLine={false} width={48} domain={[0, 'auto']} tickFormatter={(v: number) => (v === 0 ? '0' : fmtNum(v, digits && v < 1 ? digits : 0))} />
-            <Tooltip cursor={{ fill: 'rgba(108,92,231,.06)' }} formatter={(v: number, n: string) => [f(v), n]} />
+            <Tooltip cursor={{ fill: 'rgba(108,92,231,.06)' }} content={<Tip f={f} noteOf={noteOf} extra={extra} />} />
             {refLine && <ReferenceLine y={refLine.y} stroke={refLine.color} strokeWidth={2} strokeDasharray="6 4" />}
             {(stack ?? []).map((s, i) => (
               <Bar key={s.key} dataKey={s.key} name={s.name} stackId="s" fill={s.color} maxBarSize={44} isAnimationActive={false}
@@ -89,13 +99,38 @@ const splitName = (v: string): [string, string] => {
   const m = /^([A-Za-z]{3})['\s-]?(\d{4}|\d{2})$/.exec(v);
   return m ? [m[1], m[2]] : [v, ''];
 };
-function Tick({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) {
+function Tick({ x, y, payload, noted }: { x?: number; y?: number; payload?: { value: string }; noted?: Set<string> }) {
   if (x === undefined || y === undefined || !payload) return null;
   const [a, b] = splitName(String(payload.value));
+  const dot = noted?.has(String(payload.value));
   return (
-    <text x={x} y={y + 12} textAnchor="middle" fontSize={12} fill={b ? '#4b4870' : AXIS.fill} fontWeight={b ? 600 : 400}>
-      <tspan x={x}>{a}</tspan>{b && <tspan x={x} dy={14}>{b}</tspan>}
-    </text>
+    <g>
+      <text x={x} y={y + 12} textAnchor="middle" fontSize={12} fill={b ? '#4b4870' : AXIS.fill} fontWeight={b ? 600 : 400}>
+        <tspan x={x}>{a}</tspan>{b && <tspan x={x} dy={14}>{b}</tspan>}
+      </text>
+      {dot && <circle cx={x} cy={y + (b ? 36 : 22)} r={3.5} fill={NOTE_COLOR} data-testid="note-dot"><title>มีหมายเหตุ</title></circle>}
+    </g>
+  );
+}
+
+interface TipItem { name?: string; value?: number | string; color?: string; type?: string; payload?: PwPoint }
+/** The usual numbers of the column, then anything extra, then its notes. */
+function Tip({ active, payload, label, f, noteOf, extra }: { active?: boolean; payload?: TipItem[]; label?: string;
+  f: (v: number) => string; noteOf: (p: PwPoint) => { label?: string; text: string }[]; extra?: (p: PwPoint) => string[] }) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0].payload as PwPoint;
+  // The hidden line that writes the totals is marked tooltipType none: it is not a series.
+  const rows = payload.filter((i) => num(i.value) && i.type !== 'none');
+  const more = extra?.(p) ?? [];
+  const ns = noteOf(p);
+  if (!rows.length && !ns.length) return null;
+  return (
+    <div className="pw-tip">
+      <b>{label}</b>
+      {rows.map((i, k) => <div key={k} style={{ color: i.color }}>{i.name}: {f(i.value as number)}</div>)}
+      {more.map((t, k) => <div key={`x${k}`} className="muted">{t}</div>)}
+      {ns.map((n, k) => <div key={`n${k}`} className="pw-tip-note"><b>หมายเหตุ{n.label ? ` ${n.label}` : ''}:</b> {n.text}</div>)}
+    </div>
   );
 }
 

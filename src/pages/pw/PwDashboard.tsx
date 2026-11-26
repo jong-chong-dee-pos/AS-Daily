@@ -8,6 +8,8 @@ import { AGE_COLOR, AGE_LABEL, PLAN_COLOR, PLAN_LABEL, PW_COLOR } from '../../ui
 import { fmtMonth, MONTHS, todayIso } from '../../ui/format';
 import { JumpBar, type JumpItem } from '../../ui/JumpBar';
 
+const num = (v: unknown): v is number => typeof v === 'number';
+
 const PW_JUMPS: JumpItem[] = [
   { id: 'pw-inv', label: 'Inventory' }, { id: 'pw-turn', label: 'Turn Over' }, { id: 'pw-plan', label: 'แผนประกอบ' },
   { id: 'pw-missing', label: 'Missing / Stock Diff' }, { id: 'pw-count', label: 'Plan Count' }, { id: 'pw-per', label: '% Performance' },
@@ -67,12 +69,12 @@ export function PwDashboard() {
       <div id="pw-inv" />
       <PwChart title="Inventory Purchaser Part & Inhouse" sub="PUR = รวม Turn Over Purchase Part · WIP = รวม Turn Over Inhouse" data={inv} digits={2}
         stack={[{ key: 'wip', name: 'WIP', color: PW_COLOR.wip }, { key: 'pur', name: 'PUR', color: PW_COLOR.pur }]}
-        lines={[{ key: 'total', name: 'Total', color: PW_COLOR.total }]} labelKey="total" />
+        lines={[{ key: 'total', name: 'Total', color: PW_COLOR.total }]} labelKey="total" notes={[{ key: 'notePur', label: 'Purchase Part' }, { key: 'noteInh', label: 'Inhouse' }]} />
       <div id="pw-turn" />
       <PwChart title="Turn Over : Purchase Part" data={inv} digits={2} stack={ages('p')} labelKey="pur"
-        lines={[{ key: 'pur', name: 'Total', color: PW_COLOR.total }]} height={360} />
+        lines={[{ key: 'pur', name: 'Total', color: PW_COLOR.total }]} height={360} notes={[{ key: 'notePur' }]} />
       <PwChart title="Turn Over : Inhouse" data={inv} digits={2} stack={ages('i')} labelKey="wip"
-        lines={[{ key: 'wip', name: 'Total', color: PW_COLOR.total }]} height={360} />
+        lines={[{ key: 'wip', name: 'Total', color: PW_COLOR.total }]} height={360} notes={[{ key: 'noteInh' }]} />
       <div className="pw-plan-head" id="pw-plan">
         <label>แผนประกอบเดือน <select aria-label="เดือนของแผนประกอบ" value={planMonth} onChange={(e) => set('pm', e.target.value)}>
           {MONTHS.map((m, i) => { const v = `${year}-${String(i + 1).padStart(2, '0')}`; return <option key={v} value={v}>{m} {year}</option>; })}
@@ -80,22 +82,23 @@ export function PwDashboard() {
       </div>
       <PwChart title={`แผนประกอบรายวัน ${fmtMonth(planMonth)}`} sub="ชิ้น" data={planSeries(planMonth, plan) as PwPoint[]} height={380}
         stack={PLAN_GROUPS.map((g) => ({ key: g, name: PLAN_LABEL[g], color: PLAN_COLOR[g] }))} labelKey="total"
-        refLine={{ y: t.manpower, name: `กำลังพล ${t.manpower}`, color: PW_COLOR.target }} />
+        refLine={{ y: t.manpower, name: `กำลังพล ${t.manpower}`, color: PW_COLOR.target }} notes={[{ key: 'note' }]} />
       <div className="pw-stack" id="pw-missing">
         <PwChart title="Missing Part No. & Qty" sub="จำนวนรายการต่อเดือน" data={yearly} bars={[{ key: 'missing', name: 'Actual', color: PW_COLOR.bar }]} judged
-          lines={[{ key: 'missingMax', name: 'MAX', color: PW_COLOR.target, dots: false, dashed: true }]} colorOf={atMost('missing', 'missingMax')} />
+          lines={[{ key: 'missingMax', name: 'MAX', color: PW_COLOR.target, dots: false, dashed: true }]} colorOf={atMost('missing', 'missingMax')}
+          notes={[{ key: 'noteMissing' }]} extra={(p) => (num(p.missingShort) && num(p.missingOver) && (p.missingShort || p.missingOver) ? [`ขาด ${p.missingShort} รายการ · เกิน ${p.missingOver} รายการ`] : [])} />
         <PwChart title="Stock Diff (Amt)" sub="Pur & Wip" data={yearly} digits={3} bars={[{ key: 'stockDiff', name: 'Pur & Wip', color: PW_COLOR.bar }]} judged
-          lines={[{ key: 'stockDiffTarget', name: 'Target', color: PW_COLOR.target, dots: false, dashed: true }]} colorOf={atMost('stockDiff', 'stockDiffTarget')} />
+          lines={[{ key: 'stockDiffTarget', name: 'Target', color: PW_COLOR.target, dots: false, dashed: true }]} colorOf={atMost('stockDiff', 'stockDiffTarget')} notes={[{ key: 'noteStockDiff' }]} />
       </div>
       <div id="pw-count" />
       <PwChart title={`Plan Count ปี ${year}`} data={countSeries(year, months) as PwPoint[]}
-        bars={[{ key: 'plan', name: 'Plan', color: PW_COLOR.plan }, { key: 'actual', name: 'Actual', color: PW_COLOR.actual }]} />
+        bars={[{ key: 'plan', name: 'Plan', color: PW_COLOR.plan }, { key: 'actual', name: 'Actual', color: PW_COLOR.actual }]} notes={[{ key: 'notePlanCount' }]} />
       <div className="pw-stack" id="pw-per">
         <PwChart title={`% Performance ${year} ทีมจ่าย`} data={per} bars={[{ key: 'issue', name: '% PER', color: PW_COLOR.good }]} judged
-          lines={[{ key: 'issueTarget', name: `Target ≥${t.per}%`, color: PW_COLOR.target, dashed: true }]} colorOf={atLeast('issue', 'issueTarget')} />
+          lines={[{ key: 'issueTarget', name: `Target ≥${t.per}%`, color: PW_COLOR.target, dashed: true }]} colorOf={atLeast('issue', 'issueTarget')} notes={[{ key: 'noteIssue' }]} />
         <PwChart title={`% Performance ${year} ทีมนับสต๊อก`} data={per} bars={[{ key: 'count', name: '% PER', color: PW_COLOR.good }]} judged
           lines={[{ key: 'countTarget', name: `Target ≥${t.per}%`, color: PW_COLOR.target, dashed: true }, { key: 'countItem', name: 'Target Item', color: PW_COLOR.item, dashed: true }]}
-          colorOf={atLeast('count', 'countTarget')} />
+          colorOf={atLeast('count', 'countTarget')} notes={[{ key: 'notePerCount' }]} />
       </div>
     </section>
   );

@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { useRef, useState } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { grouped, NumInput, useEnterMovesDown, useUnsavedGuard } from '../../src/ui/entryKit';
+import { grouped, NumInput, parseSigned, useEnterMovesDown, useUnsavedGuard } from '../../src/ui/entryKit';
 import { parseNum } from '../../src/pages/EntryDaily';
 
 describe('number entry with thousands separators', () => {
@@ -13,6 +13,11 @@ describe('number entry with thousands separators', () => {
     expect(grouped('12,34')).toBe('1,234');
     expect(grouped('')).toBe('');
     expect(grouped('12a')).toBe('12a'); // left alone so the page marks it invalid
+    expect(grouped('-1234')).toBe('-1,234');
+    expect(grouped('-')).toBe('-');
+    expect(parseSigned('-1,234')).toBe(-1234);
+    expect(parseSigned('')).toBeNull();
+    expect(parseSigned('1.5')).toBeNaN();
     expect(parseNum(grouped('9876543.21'))).toBe(9876543.21);
   });
 

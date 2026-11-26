@@ -13,7 +13,7 @@ import { AppRoutes } from '../../src/AppRoutes';
 import { PwEntryMonthly } from '../../src/pages/pw/PwEntryMonthly';
 import { PwEntryDaily } from '../../src/pages/pw/PwEntryDaily';
 import { TargetsForm } from '../../src/pages/pw/PwSettings';
-import { bucketTotal, inventorySeries, missingCount, perSeries, planSeries, yearlySeries, PW_DEFAULT_TARGETS } from '../../src/calc/pw';
+import { bucketTotal, countSeries, inventorySeries, missingCount, missingSplit, perSeries, planSeries, yearlySeries, PW_DEFAULT_TARGETS } from '../../src/calc/pw';
 import type { AppUser, PwBaseline, PwMonth } from '../../src/types';
 import { memDb } from './memDb';
 
@@ -47,6 +47,21 @@ describe('Part Warehouse calculations', () => {
     expect(missingCount(month('x', { missing: [{ partNo: 'A1', qty: 2 }, { partNo: ' ', qty: null }, { partNo: 'B2', qty: 1 }], missingCount: 7 }))).toBe(2);
     expect(missingCount(month('x', { missingCount: 7 }))).toBe(7);
     expect(missingCount(undefined)).toBeNull();
+  });
+  it('a short (negative) and an over (positive) Qty each count as one missing part', () => {
+    const m = month('2026-05', { missing: [{ partNo: 'A1', qty: -3 }, { partNo: 'B2', qty: 2 }, { partNo: 'C3', qty: -1 }] });
+    expect(missingCount(m)).toBe(3);
+    expect(missingSplit(m)).toEqual({ short: 2, over: 1 });
+    const s = yearlySeries(2026, [m], base, PW_DEFAULT_TARGETS);
+    expect(s[5]).toMatchObject({ name: 'May', missing: 3, missingShort: 2, missingOver: 1 });
+  });
+  it('notes ride on the chart points for the tooltip, one per topic', () => {
+    const m = month('2026-02', { notes: { pur: 'ของเข้าล็อตใหญ่', missing: 'รอซัพพลายเออร์', perCount: ' ', count: 'นับซ้ำ', perIssue: 'คนลา 2 คน', stockDiff: 'ปรับยอด', inh: 'WIP สูง' } });
+    expect(inventorySeries(2026, [m], base)[2]).toMatchObject({ name: 'Feb', notePur: 'ของเข้าล็อตใหญ่', noteInh: 'WIP สูง' });
+    expect(yearlySeries(2026, [m], base, PW_DEFAULT_TARGETS)[2]).toMatchObject({ noteMissing: 'รอซัพพลายเออร์', noteStockDiff: 'ปรับยอด' });
+    expect(countSeries(2026, [m])[1]).toMatchObject({ notePlanCount: 'นับซ้ำ' });
+    expect(perSeries(2026, [m], base, PW_DEFAULT_TARGETS)[1]).toMatchObject({ noteIssue: 'คนลา 2 คน', notePerCount: null }); // blank is no note
+    expect(planSeries('2026-11', [{ date: '2026-11-02', qty: { auto: 5 }, note: 'ไลน์หยุด' }])[1]).toMatchObject({ note: 'ไลน์หยุด' });
   });
   it('earlier years carry their own targets, months the current ones', () => {
     const t = { ...PW_DEFAULT_TARGETS, missingMax: 5 };
@@ -119,6 +134,33 @@ describe('Part Warehouse monthly entry', () => {
     expect(m).toMatchObject({ month: '2026-04', pur: { lt2: 10.5, noUsage: 2.25, m2to6: null }, inh: { m2to6: 3 }, perIssue: 121, perCount: null,
       missing: [{ partNo: 'P-100', qty: 4 }, { partNo: 'P-200', qty: 1 }] });
     expect(m.missingCount).toBeUndefined();
+    expect(m.notes).toEqual({});
+  });
+  it('Qty takes short (negative) and over (positive) amounts, never 0, and each topic keeps a note', async () => {
+    const { db } = memDb();
+    const repo = makeArtifactRepo(db) as Repo;
+    wrap(repo, <PwEntryMonthly initialMonth="2026-06" />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'บันทึก' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: '+ เพิ่ม Part No.' }));
+    fireEvent.change(screen.getByLabelText('Part No. แถว 1'), { target: { value: 'P-1' } });
+    fireEvent.change(screen.getByLabelText('Qty แถว 1'), { target: { value: '0' } });
+    expect(screen.getByRole('alert')).toHaveTextContent('ใส่จำนวนที่ขาด (ติดลบ) หรือเกิน (บวก)');
+    fireEvent.change(screen.getByLabelText('Qty แถว 1'), { target: { value: '-1200' } });
+    expect(screen.getByLabelText('Qty แถว 1')).toHaveValue('-1,200');
+    fireEvent.click(screen.getByRole('button', { name: '+ เพิ่ม Part No.' }));
+    fireEvent.change(screen.getByLabelText('Part No. แถว 2'), { target: { value: 'P-2' } });
+    fireEvent.change(screen.getByLabelText('Qty แถว 2'), { target: { value: '3' } });
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByTestId('missing-count')).toHaveTextContent('นับได้ 2 รายการ (ขาด 1 · เกิน 1)');
+    for (const t of ['Turn Over Purchase Part', 'Turn Over Inhouse', 'Missing Part', 'Stock Diff', 'Plan Count', '% Performance ทีมจ่าย', '% Performance ทีมนับสต๊อก'])
+      expect(screen.getByLabelText(`หมายเหตุ ${t}`)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('หมายเหตุ Missing Part'), { target: { value: ' รอของจากซัพพลายเออร์ ' } });
+    fireEvent.change(screen.getByLabelText('หมายเหตุ % Performance ทีมนับสต๊อก'), { target: { value: 'คนลา' } });
+    fireEvent.click(screen.getByRole('button', { name: 'บันทึก' }));
+    await screen.findByText('บันทึกข้อมูลเดือน Jun 2026 แล้ว');
+    const [m] = await repo.getPwMonths('2026-06', '2026-06');
+    expect(m.missing).toEqual([{ partNo: 'P-1', qty: -1200 }, { partNo: 'P-2', qty: 3 }]);
+    expect(m.notes).toEqual({ missing: 'รอของจากซัพพลายเออร์', perCount: 'คนลา' });
   });
   it('keeps the count imported from the old chart while no list is typed', async () => {
     const { db } = memDb();
@@ -148,6 +190,20 @@ describe('Part Warehouse daily plan entry', () => {
     await screen.findByText('บันทึกแผนวันที่ 03/11/2026 แล้ว');
     expect(await repo.getPwPlan('2026-11')).toEqual([{ date: '2026-11-03', qty: { singleLever: 250, manual: 70 } }]);
     expect(screen.getByRole('button', { name: '3' })).toHaveClass('has');
+  });
+  it('keeps one note for the day, and a cleared note is removed', async () => {
+    const { db } = memDb();
+    const repo = makeArtifactRepo(db) as Repo;
+    await repo.savePwPlanDay({ date: '2026-11-04', qty: { auto: 10 }, note: 'ไลน์ A หยุดซ่อม' });
+    await repo.savePwPlanDay({ date: '2026-11-05', qty: {}, note: 'วันหยุดพิเศษ' }); // a note alone is kept
+    expect(await repo.getPwPlan('2026-11')).toEqual([
+      { date: '2026-11-04', qty: { auto: 10 }, note: 'ไลน์ A หยุดซ่อม' }, { date: '2026-11-05', qty: {}, note: 'วันหยุดพิเศษ' }]);
+    wrap(repo, <PwEntryDaily initialDate="2026-11-04" />);
+    await waitFor(() => expect(screen.getByLabelText('หมายเหตุแผนประกอบ')).toHaveValue('ไลน์ A หยุดซ่อม'));
+    fireEvent.change(screen.getByLabelText('หมายเหตุแผนประกอบ'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'บันทึก' }));
+    await screen.findByText('บันทึกแผนวันที่ 04/11/2026 แล้ว');
+    expect((await repo.getPwPlan('2026-11'))[0]).toEqual({ date: '2026-11-04', qty: { auto: 10 } });
   });
 });
 
@@ -187,10 +243,12 @@ describe('Part Warehouse settings and pages', () => {
   });
   it('the dashboard shows the nine charts', async () => {
     const repo = makeArtifactRepo(memDb().db) as Repo;
-    await repo.savePwMonth(month('2026-01', { pur: B(1, 1, 1, 1, 1), countPlan: 10, perIssue: 120, perCount: 119, stockDiff: 0.02, missingCount: 3 }));
+    await repo.savePwMonth(month('2026-01', { pur: B(1, 1, 1, 1, 1), countPlan: 10, perIssue: 120, perCount: 119, stockDiff: 0.02, missingCount: 3, notes: { perIssue: 'คนลา' } }));
     at('/part-warehouse?y=2026', admin, repo);
     for (const t of ['Inventory Purchaser Part & Inhouse', 'Turn Over : Purchase Part', 'Turn Over : Inhouse', 'Missing Part No. & Qty', 'Stock Diff (Amt)',
       'Plan Count ปี 2026', '% Performance 2026 ทีมจ่าย', '% Performance 2026 ทีมนับสต๊อก']) expect(await screen.findByText(t)).toBeInTheDocument();
     expect(screen.getByText(/แผนประกอบรายวัน/, { selector: '.chart-title' })).toBeInTheDocument();
+    // Only the chart whose month has a note says there is one to hover.
+    expect(screen.getAllByText('มีหมายเหตุ (ชี้เพื่ออ่าน)')).toHaveLength(1);
   });
 });

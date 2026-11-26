@@ -15,7 +15,7 @@ export interface ArtifactDb {
 }
 
 const PW = 'areas/partWarehouse';
-type PwPlanDoc = { days?: Record<string, PwPlanDay['qty']> };
+type PwPlanDoc = { days?: Record<string, PwPlanDay['qty']>; notes?: Record<string, string> };
 type PerMonthDoc = { entries?: Record<string, Omit<PerEntry, 'date' | 'lineId'>> };
 type LotMonthDoc = { days?: Record<string, Omit<LotEntry, 'date'>> };
 type AbsenceMonthDoc = { days?: Record<string, Absence[]> };
@@ -209,15 +209,20 @@ export function makeArtifactRepo(db: ArtifactDb, uploadImage?: (f: Blob) => Prom
     savePwMonth: (m: PwMonth) => db.doc(`${PW}/monthly/${m.month}`).set({ ...m, ...stamp() }),
     async getPwPlan(month: string): Promise<PwPlanDay[]> {
       const d = await read<PwPlanDoc>(`${PW}/plan/${month}`);
-      return Object.entries(d.days ?? {}).map(([date, qty]) => ({ date, qty })).sort((a, b) => a.date.localeCompare(b.date));
+      // A day may carry only a note (no plan) and still shows on the page.
+      const dates = [...new Set([...Object.keys(d.days ?? {}), ...Object.keys(d.notes ?? {})])].sort();
+      return dates.map((date) => ({ date, qty: d.days?.[date] ?? {}, ...(d.notes?.[date] ? { note: d.notes[date] } : {}) }));
     },
-    /** Saves one day of the plan; an empty day is removed. */
+    /** Saves one day of the plan and its note; an empty day is removed. */
     async savePwPlanDay(day: PwPlanDay) {
       const path = `${PW}/plan/${day.date.slice(0, 7)}`;
-      const days = { ...(await read<PwPlanDoc>(path)).days };
+      const doc = await read<PwPlanDoc>(path);
+      const days = { ...doc.days }, notes = { ...doc.notes };
       const qty = Object.fromEntries(Object.entries(day.qty).filter(([, v]) => typeof v === 'number'));
       if (Object.keys(qty).length) days[day.date] = qty; else delete days[day.date];
-      await db.doc(path).set({ month: day.date.slice(0, 7), days, ...stamp() });
+      const note = day.note?.trim();
+      if (note) notes[day.date] = note; else delete notes[day.date];
+      await db.doc(path).set({ month: day.date.slice(0, 7), days, notes, ...stamp() });
     },
     async getPwTargets(): Promise<PwTargets> {
       const d = await read<Partial<PwTargets>>(`${PW}/settings/targets`);

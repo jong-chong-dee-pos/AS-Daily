@@ -1,12 +1,12 @@
 import { useEffect, type InputHTMLAttributes, type RefObject } from 'react';
 
 /**
- * "1234567.5" → "1,234,567.5" while keeping whatever the person typed after the point.
+ * "1234567.5" → "1,234,567.5" (and "-1234" → "-1,234") while keeping whatever the person typed after the point.
  * Anything that is not a plain number is left as typed, so the page can mark it invalid.
  */
 export function grouped(s: string): string {
   const t = s.replace(/,/g, '');
-  const m = /^(\s*)(\d+)(\.\d*)?(\s*)$/.exec(t);
+  const m = /^(\s*-?)(\d+)(\.\d*)?(\s*)$/.exec(t);
   if (!m) return s;
   return `${m[1]}${m[2].replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${m[3] ?? ''}${m[4]}`;
 }
@@ -32,6 +32,13 @@ export function NumInput({ value, onChange, inputMode = 'decimal', ...rest }: In
       onChange?.(e);
     }} />
   );
+}
+
+/** A whole number that may be negative ("-1,200"); blank is null, anything else NaN. */
+export function parseSigned(s: string): number | null {
+  const t = s.trim().replace(/,/g, '');
+  if (t === '') return null;
+  return /^-?\d+$/.test(t) ? Number(t) : NaN;
 }
 
 const FIELDS = 'input:not([type=hidden]):not([type=file]):not([type=checkbox]):not([type=radio]):not([type=date]):not([type=month]):not(:disabled), select:not(:disabled)';
