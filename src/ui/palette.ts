@@ -1,18 +1,18 @@
 /**
  * One chart palette for the whole system (Assembly and Part Warehouse):
- * violet = the actual figure, soft violet = the plan or standard it is compared with,
+ * violet = the actual figure, blue = the plan or standard it is compared with,
  * green = target met, red = target missed, dashed orange = the target line,
  * grey = a previous year or an average. The Turn Over age buckets and the ten product
  * groups of the assembly plan keep their own colours.
  */
 export const PAL = {
-  actual: '#6c5ce7',
-  plan: '#c4bcf7',
-  good: '#1fae6a',
-  bad: '#ef4056',
-  warn: '#f5c518',
-  target: '#ff9f1a',
-  prev: '#b3b1c6',
+  actual: '#5b3fe0',
+  plan: '#2f8fe8',
+  good: '#0a8f7a',
+  bad: '#e5383b',
+  warn: '#e0a800',
+  target: '#ee9200',
+  prev: '#9a96b3',
   /** Totals and secondary reference lines. */
   ink: '#2a2750',
   muted: '#6e6a8e',
