@@ -56,7 +56,7 @@ describe('ReportPer views', () => {
     const n = importedNote(base, { kind: 'month', month: '2026-10' })!;
     expect(n.text).toContain('134.0');
     expect(importedNote(base, nov)).toBeNull();
-    expect(importedNote(base, { kind: 'year', year: 2026 })!.text).toContain('ต.ค.');
+    expect(importedNote(base, { kind: 'year', year: 2026 })!.text).toContain('Oct');
   });
 });
 

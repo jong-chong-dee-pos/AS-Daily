@@ -1,9 +1,10 @@
-export const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+/** Month names in English everywhere (Jan, Feb, ...), as on the original charts. */
+export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** YYYY-MM-DD → DD/MM/YYYY (A.D.). */
 export const fmtDate = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
-/** YYYY-MM → "พ.ย. 2026". */
-export const fmtMonth = (m: string) => `${THAI_MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
+/** YYYY-MM → "Nov 2026". */
+export const fmtMonth = (m: string) => `${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
 export const fmtNum = (v: number | null | undefined, digits = 1) =>
   v === null || v === undefined || Number.isNaN(v)
     ? '–'

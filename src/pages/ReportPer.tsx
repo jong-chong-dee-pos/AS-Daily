@@ -7,7 +7,7 @@ import { targetFor } from '../calc/cost';
 import type { Period } from '../types';
 import { FilterBar } from '../ui/FilterBar';
 import { usePeriod } from '../ui/usePeriod';
-import { fmtDate, fmtMonth, fmtNum, THAI_MONTHS } from '../ui/format';
+import { fmtDate, fmtMonth, fmtNum, MONTHS } from '../ui/format';
 import { ExportButtons } from '../ui/ExportButtons';
 import { workerLabel } from '../ui/labels';
 import { PerMonthChart, PerRankChart, yearOf, type RankRow } from '../ui/ExcelCharts';
@@ -175,7 +175,7 @@ export function importedNote(d: ReportData, p: Period): { text: string; detail: 
     return { text: `${fmtMonth(p.month)} นำเข้าจาก Excel: % PER เฉลี่ยทั้งเดือน ${fmtNum(v)}%`,
       detail: 'ไฟล์ Excel มีเฉพาะค่ารวมรายเดือน จึงไม่มีตัวเลขแยกรายไลน์ ราย Setter หรือรายคนของเดือนนี้' };
   }
-  const names = summarized.map((m) => THAI_MONTHS[Number(m.slice(5)) - 1]).join(', ');
+  const names = summarized.map((m) => MONTHS[Number(m.slice(5)) - 1]).join(', ');
   return { text: `เดือนที่นำเข้าจาก Excel (${names}) มีเฉพาะค่ารวมรายเดือน`,
     detail: p.kind === 'range'
       ? 'ช่วงวันที่นับเฉพาะวันที่กรอกข้อมูลรายวันในระบบ ค่ารวมของเดือนที่นำเข้าดูได้ในกราฟรายเดือนด้านบน'
@@ -191,7 +191,7 @@ interface Built { head: string[]; headSub: string[]; weekend: boolean[]; colGrou
 export function buildTable(d: ReportData, p: Period, tab: Tab): Built {
   const byYear = p.kind === 'year';
   const cols = byYear ? monthsIn(p) : datesIn(p);
-  const colHead = byYear ? cols.map((m) => THAI_MONTHS[Number(m.slice(5)) - 1]) : cols.map((c) => (p.kind === 'month' ? String(Number(c.slice(8))) : fmtDate(c).slice(0, 5)));
+  const colHead = byYear ? cols.map((m) => MONTHS[Number(m.slice(5)) - 1]) : cols.map((c) => (p.kind === 'month' ? String(Number(c.slice(8))) : fmtDate(c).slice(0, 5)));
   const WD = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
   const dow = (c: string) => new Date(`${c}T00:00:00Z`).getUTCDay();
   const colSub = byYear ? cols.map(() => '') : cols.map((c) => WD[dow(c)]);

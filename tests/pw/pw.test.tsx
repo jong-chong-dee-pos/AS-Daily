@@ -35,12 +35,12 @@ describe('Part Warehouse calculations', () => {
     expect(bucketTotal(NB)).toBeNull();
     const s = inventorySeries(2026, [month('2026-01', { pur: B(10, 0, 0, 0, 2.5), inh: { ...NB, lt2: 4 } })], base);
     expect(s[0]).toMatchObject({ name: 'Dec\'2025', pur: 15, wip: 5, total: 20 });
-    expect(s[1]).toMatchObject({ name: 'ม.ค.', pur: 12.5, wip: 4, total: 16.5, p_noUsage: 2.5 });
-    expect(s[12]).toMatchObject({ name: 'ธ.ค.', pur: null, wip: null, total: null }); // no bar, no zero
+    expect(s[1]).toMatchObject({ name: 'Jan', pur: 12.5, wip: 4, total: 16.5, p_noUsage: 2.5 });
+    expect(s[12]).toMatchObject({ name: 'Dec', pur: null, wip: null, total: null }); // no bar, no zero
   });
   it('other years show last December instead of the imported columns', () => {
     const s = inventorySeries(2027, [month('2026-12', { pur: B(1, 1, 1, 1, 1) })], base);
-    expect(s[0]).toMatchObject({ name: 'ธ.ค. 2026', pur: 5 });
+    expect(s[0]).toMatchObject({ name: 'Dec 2026', pur: 5 });
     expect(s).toHaveLength(13);
   });
   it('Missing Part counts the listed rows, else the imported count', () => {
@@ -52,7 +52,7 @@ describe('Part Warehouse calculations', () => {
     const t = { ...PW_DEFAULT_TARGETS, missingMax: 5 };
     const s = yearlySeries(2026, [month('2026-03', { missingCount: 6, stockDiff: 0.01 })], base, t);
     expect(s[0]).toMatchObject({ name: '2025', missing: 9, missingMax: 8, stockDiffTarget: 0.2 });
-    expect(s[3]).toMatchObject({ name: 'มี.ค.', missing: 6, missingMax: 5, stockDiff: 0.01 });
+    expect(s[3]).toMatchObject({ name: 'Mar', missing: 6, missingMax: 5, stockDiff: 0.01 });
   });
   it('% Performance adds this year\'s average and the imported averages', () => {
     const s = perSeries(2026, [month('2026-01', { perIssue: 110, perCount: 90 }), month('2026-02', { perIssue: 121, perCount: 101 })], base, PW_DEFAULT_TARGETS);
@@ -114,7 +114,7 @@ describe('Part Warehouse monthly entry', () => {
     expect(screen.getByTestId('missing-count')).toHaveTextContent('นับได้ 2 รายการ');
     fireEvent.change(screen.getByLabelText('% Performance ทีมจ่าย'), { target: { value: '121' } });
     fireEvent.click(screen.getByRole('button', { name: 'บันทึก' }));
-    await screen.findByText('บันทึกข้อมูลเดือน เม.ย. 2026 แล้ว');
+    await screen.findByText('บันทึกข้อมูลเดือน Apr 2026 แล้ว');
     const [m] = await repo.getPwMonths('2026-04', '2026-04');
     expect(m).toMatchObject({ month: '2026-04', pur: { lt2: 10.5, noUsage: 2.25, m2to6: null }, inh: { m2to6: 3 }, perIssue: 121, perCount: null,
       missing: [{ partNo: 'P-100', qty: 4 }, { partNo: 'P-200', qty: 1 }] });
@@ -128,7 +128,7 @@ describe('Part Warehouse monthly entry', () => {
     await screen.findByText(/มีจำนวนจากรายงานเดิม 8 รายการ/);
     fireEvent.change(screen.getByLabelText('Stock Diff (Amt) Pur & Wip'), { target: { value: '0.013' } });
     fireEvent.click(screen.getByRole('button', { name: 'บันทึก' }));
-    await screen.findByText('บันทึกข้อมูลเดือน มี.ค. 2026 แล้ว');
+    await screen.findByText('บันทึกข้อมูลเดือน Mar 2026 แล้ว');
     expect((await repo.getPwMonths('2026-03', '2026-03'))[0]).toMatchObject({ missingCount: 8, stockDiff: 0.013 });
   });
 });

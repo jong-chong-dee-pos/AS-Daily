@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Period } from '../types';
-import { THAI_MONTHS } from './format';
+import { MONTHS } from './format';
 
 interface Props {
   value: Period;
@@ -62,7 +62,7 @@ export function FilterBar({ value, onChange, children }: Props) {
         <label>เดือน
           <select id="f-month" value={month} onChange={(e) =>
             onChange({ kind: 'month', month: `${year}-${String(e.target.value).padStart(2, '0')}` })}>
-            {THAI_MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
           </select>
         </label>
       )}

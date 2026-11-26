@@ -1,4 +1,5 @@
 import { Bar, CartesianGrid, Cell, ComposedChart, LabelList, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useNarrow } from './useNarrow';
 import type { ReportData } from '../data/useReportData';
 import { daysInMonth, monthsIn } from '../calc/period';
 import { mean } from '../calc/per';
@@ -7,14 +8,15 @@ import { lotByWeek, lotTotals } from '../calc/lotout';
 import { targetFor } from '../calc/cost';
 import type { CostCategory, LotEntry, Target } from '../types';
 import { buildCostRows } from '../pages/ReportCost';
-import { fmtNum, THAI_MONTHS } from './format';
+import { fmtNum, MONTHS } from './format';
+import { PAL } from './palette';
 
 
 export interface Point { name: string; [k: string]: string | number | null }
 interface Series { key: string; name: string; color: string; digits: number }
 
 const yy = (y: number) => String(y).slice(2);
-const short = (m: string) => THAI_MONTHS[Number(m.slice(5, 7)) - 1];
+const short = (m: string) => MONTHS[Number(m.slice(5, 7)) - 1];
 
 /** % PER by month, then AVG for this year and the two before (sheet "% Per (Month)_"). */
 export function perMonthSeries(d: ReportData, year: number): Point[] {
@@ -65,13 +67,13 @@ export function costSeries(d: ReportData, year: number, cat: CostCategory): Poin
     .map((r) => ({ name: short(r.month), standard: r.standard, actual: r.actual, variance: r.variance }));
 }
 
-/** Vivid series palette: each data series keeps its own colour across every page. */
+/** Series colours, all taken from the one system palette (see palette.ts). */
 export const C = {
-  per: '#6c5ce7', perSoft: '#c9c2fb',
-  lot: '#00b3a4', lotSoft: '#a6e8e1',
-  lotDay: '#2d8cff', lotWeek: '#ff8a3d',
-  std: '#4aa8ff', act: '#8b5cf6', varUp: '#18b26b', varDown: '#ff4d7d',
-  target: '#ff9f1a', targetLow: '#ff4d7d',
+  per: PAL.actual, perSoft: PAL.prev,
+  lot: PAL.actual, lotSoft: PAL.prev,
+  lotDay: PAL.actual, lotWeek: PAL.actual,
+  std: PAL.plan, act: PAL.actual, varUp: PAL.good, varDown: PAL.bad,
+  target: PAL.target, targetLow: PAL.target,
 };
 /** Kept for older imports. */
 export const XL = { green: C.varUp, cyan: C.lot, red: C.varDown, orange: C.target, blue: C.lotDay, target: C.target };
@@ -99,10 +101,10 @@ function BarValue({ x = 0, y = 0, width = 0, height = 0, value, fmt, vertical, c
   const neg = value < 0;
   const text = fmt(value);
   const weight = value === 0 ? 400 : 600;
-  const fill = value === 0 ? '#aeacc4' : color;
+  const fill = value === 0 ? '#6e6a8e' : color;
   if (vertical) {
     const ty = neg ? bottom + 4 : top - 4;
-    return <text x={cx} y={ty} transform={`rotate(-90 ${cx} ${ty})`} textAnchor={neg ? 'end' : 'start'} dominantBaseline="central" fontSize={10} fontWeight={weight} fill={fill}>{text}</text>;
+    return <text x={cx} y={ty} transform={`rotate(-90 ${cx} ${ty})`} textAnchor={neg ? 'end' : 'start'} dominantBaseline="central" fontSize={12} fontWeight={weight} fill={fill}>{text}</text>;
   }
   return <text x={cx} y={neg ? bottom + 14 : top - 6} textAnchor="middle" fontSize={12} fontWeight={weight} fill={fill}>{text}</text>;
 }
@@ -114,17 +116,23 @@ const range = (vals: (number | null | string)[], digits: number) => {
   return lo === hi ? fmtNum(lo, digits) : `${fmtNum(lo, digits)}–${fmtNum(hi, digits)}`;
 };
 
-export function ExcelChart({ title, sub, data, bars, line, height = 300, unit = '', soft }: {
+export function ExcelChart({ title, sub, data, bars, line, height = 300, unit = '', soft, judge }: {
   title: string; sub?: string; data: Point[]; bars: Series[]; line?: Series;
   height?: number; unit?: string;
+  /** Colours a single bar green when its column met the target, red when it missed. */
+  judge?: (p: Point) => boolean | null;
   /** Lighter bar colour for summary columns such as AVG-25 or the year totals. */
   soft?: { color: string; from: number };
 }) {
   const compact = bars.length > 1;
   const fmtBar = (digits: number) => (v: number) => (compact && Math.abs(v) >= 1000 ? `${fmtNum(v / 1000, 1)}k` : fmtNum(v, digits));
   const dense = data.length > 16;
+  // On a phone the month names skip when they would touch, and paired bars leave their values to the tooltip.
+  const narrow = useNarrow();
   const legend = [
-    ...bars.map((b) => ({ name: b.name, color: b.key === 'variance' ? `linear-gradient(90deg, ${C.varUp} 50%, ${C.varDown} 50%)` : b.color, line: false })),
+    ...bars.flatMap((b) => (judge ? [{ name: `${b.name} ถึงเป้า`, color: C.varUp, line: false }, { name: 'ไม่ถึงเป้า', color: C.varDown, line: false }]
+      : [{ name: b.name, color: b.key === 'variance' ? `linear-gradient(90deg, ${C.varUp} 50%, ${C.varDown} 50%)` : b.color, line: false }])),
+    ...(soft ? [{ name: 'ปีก่อน / ค่าเฉลี่ย', color: soft.color, line: false }] : []),
     ...(line ? [{ name: `${line.name} ${range(data.map((p) => p[line.key]), line.digits)}${unit}`, color: line.color, line: true }] : []),
   ];
   return (
@@ -136,9 +144,9 @@ export function ExcelChart({ title, sub, data, bars, line, height = 300, unit = 
         </span>
       </figcaption>
       <ResponsiveContainer width="100%" height={height}>
-        <ComposedChart data={data} margin={{ top: compact ? 54 : 26, right: 8, left: 0, bottom: 0 }} barGap={2} barCategoryGap={compact ? "12%" : "22%"}>
+        <ComposedChart data={data} margin={{ top: compact ? 62 : 26, right: 8, left: 0, bottom: 0 }} barGap={1} barCategoryGap={compact ? '6%' : '22%'}>
           <CartesianGrid stroke="#eeedf6" strokeDasharray="4 4" vertical={false} />
-          <XAxis dataKey="name" tick={<XTick />} height={40} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={dense ? 1 : 0} />
+          <XAxis dataKey="name" tick={<XTick />} height={40} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={narrow ? 'preserveStartEnd' : dense ? 1 : 0} minTickGap={narrow ? 6 : 5} />
           <YAxis tick={AXIS} axisLine={false} tickLine={false} width={compact ? 52 : 40}
             domain={compact ? [(lo: number) => (lo < 0 ? lo * 2.2 : 0), 'auto'] : [0, 'auto']}
             tickFormatter={(v: number) => (compact ? `${fmtNum(v / 1000, 0)}k` : fmtNum(v, bars[0].digits > 0 && Math.abs(v) < 10 ? 1 : 0))} />
@@ -146,16 +154,18 @@ export function ExcelChart({ title, sub, data, bars, line, height = 300, unit = 
             formatter={(v: number, n: string) => [`${fmtNum(v, [...bars, ...(line ? [line] : [])].find((s) => s.name === n)?.digits ?? 0)}${unit}`, n]} />
           {compact && <ReferenceLine y={0} stroke="#cfcde0" />}
           {bars.map((b) => (
-            <Bar key={b.key} dataKey={b.key} name={b.name} fill={b.color} radius={[6, 6, 6, 6]} maxBarSize={dense ? 20 : compact ? 22 : 38} isAnimationActive={false}>
+            <Bar key={b.key} dataKey={b.key} name={b.name} fill={b.color} radius={[6, 6, 6, 6]} maxBarSize={dense ? 20 : compact ? 30 : 38} isAnimationActive={false}>
               {data.map((p, i) => {
                 const v = p[b.key];
-                const fill = b.key === 'variance' && typeof v === 'number' ? (v < 0 ? C.varDown : C.varUp) : soft && i >= soft.from ? soft.color : b.color;
+                const ok = judge ? judge(p) : null;
+                const fill = b.key === 'variance' && typeof v === 'number' ? (v < 0 ? C.varDown : C.varUp)
+                  : soft && i >= soft.from ? soft.color : ok === null ? b.color : ok ? C.varUp : C.varDown;
                 return <Cell key={i} fill={fill} />;
               })}
-              <LabelList dataKey={b.key} content={(props) => (dense && !(props as LabelProps).value ? null :
+              {!(narrow && (compact || data.length > 8)) && <LabelList dataKey={b.key} content={(props) => (dense && !(props as LabelProps).value ? null :
                 <BarValue {...(props as LabelProps)} fmt={fmtBar(b.digits)} vertical={compact}
-                  color={b.key === 'variance' ? (Number((props as LabelProps).value) < 0 ? C.varDown : '#0f8a52') : '#2a2750'} />
-              )} />
+                  color={b.key === 'variance' ? (Number((props as LabelProps).value) < 0 ? '#c92a52' : '#0b7d4a') : '#2a2750'} />
+              )} />}
             </Bar>
           ))}
           {line && (
@@ -175,12 +185,16 @@ const avg = (pts: Point[], k: string, digits: number, unit: string) => {
 
 export const PerMonthChart = ({ d, year, height }: { d: ReportData; year: number; height?: number }) => (
   <ExcelChart title={`% PER รายเดือน ${year}`} data={perMonthSeries(d, year)} unit="%" height={height} soft={{ color: C.perSoft, from: 12 }}
+    judge={(p) => (typeof p.per === 'number' && typeof p.target === 'number' ? p.per >= p.target : null)}
     bars={[{ key: 'per', name: '% PER', color: C.per, digits: 0 }]}
     line={{ key: 'target', name: d.labels?.per ?? 'เป้า', color: C.target, digits: 0 }} />
 );
 
+const lotOk = (p: Point) => (typeof p.pct === 'number' && typeof p.target === 'number' ? p.pct <= p.target : null);
+
 export const LotMonthChart = ({ d, year, height }: { d: ReportData; year: number; height?: number }) => (
   <ExcelChart title={`Lot out % รายเดือน ${year}`} data={lotMonthSeries(d, year)} unit="%" height={height} soft={{ color: C.lotSoft, from: 12 }}
+    judge={lotOk}
     bars={[{ key: 'pct', name: 'Lot out %', color: C.lot, digits: 2 }]}
     line={{ key: 'target', name: `${d.labels?.lot ?? 'เป้า'} ≤`, color: C.targetLow, digits: 2 }} />
 );
@@ -188,14 +202,14 @@ export const LotMonthChart = ({ d, year, height }: { d: ReportData; year: number
 export const LotDailyChart = ({ lot, month, targets, label }: { lot: LotEntry[]; month: string; targets: Target[]; label: string }) => {
   const data = lotDailySeries(lot, month, targets);
   return (
-    <ExcelChart title={`Lot out % รายวัน ${label}`} sub={avg(data, 'pct', 2, '%')} data={data} unit="%"
+    <ExcelChart title={`Lot out % รายวัน ${label}`} sub={avg(data, 'pct', 2, '%')} data={data} unit="%" judge={lotOk}
       bars={[{ key: 'pct', name: 'Lot out %', color: C.lotDay, digits: 2 }]}
       line={{ key: 'target', name: 'เป้า ≤', color: C.targetLow, digits: 2 }} />
   );
 };
 
 export const LotWeekChart = ({ lot, month, targets, label }: { lot: LotEntry[]; month: string; targets: Target[]; label: string }) => (
-  <ExcelChart title={`Lot out % รายสัปดาห์ ${label}`} data={lotWeekSeries(lot, month, targets)} unit="%"
+  <ExcelChart title={`Lot out % รายสัปดาห์ ${label}`} data={lotWeekSeries(lot, month, targets)} unit="%" judge={lotOk}
     bars={[{ key: 'pct', name: 'Lot out %', color: C.lotWeek, digits: 2 }]}
     line={{ key: 'target', name: 'เป้า ≤', color: C.targetLow, digits: 2 }} />
 );
@@ -213,11 +227,11 @@ export const CostChart = ({ d, year, cat, label, height = 340 }: { d: ReportData
 function PctPill({ x, y, value, color }: { x?: number; y?: number; value?: number | null; color: string }) {
   if (x === undefined || y === undefined || value === null || value === undefined) return null;
   const text = `${fmtNum(value, 2)}%`;
-  const w = text.length * 6.2 + 10;
+  const w = text.length * 7 + 12;
   return (
     <g>
-      <rect x={x - w / 2} y={y - 23} width={w} height={16} rx={8} fill="#fff" stroke={color} strokeWidth={1.2} />
-      <text x={x} y={y - 11.5} textAnchor="middle" fontSize={10.5} fontWeight={700} fill={color}>{text}</text>
+      <rect x={x - w / 2} y={y - 24} width={w} height={18} rx={9} fill="#fff" stroke={color} strokeWidth={1.2} />
+      <text x={x} y={y - 11} textAnchor="middle" fontSize={12} fontWeight={700} fill={color}>{text}</text>
     </g>
   );
 }
@@ -227,6 +241,7 @@ function PctPill({ x, y, value, color }: { x?: number; y?: number; value?: numbe
  * Lot out FG % and its target (right axis). Clicking a month opens its FG details.
  */
 export function SentFgChart({ d, year, onPick, height = 380 }: { d: ReportData; year: number; onPick: (month: string) => void; height?: number }) {
+  const narrow = useNarrow();
   const months = monthsIn({ kind: 'year', year });
   const rows = monthlySentFg(months, d.lot, d.summaries);
   const data = rows.map((r) => ({
@@ -253,7 +268,7 @@ export function SentFgChart({ d, year, onPick, height = 380 }: { d: ReportData; 
         <ComposedChart data={data} margin={{ top: 28, right: 4, left: 0, bottom: 0 }} barGap={3} barCategoryGap="22%"
           onClick={(e: { activeTooltipIndex?: number } | null) => pick(e?.activeTooltipIndex)}>
           <CartesianGrid stroke="#eeedf6" strokeDasharray="4 4" vertical={false} />
-          <XAxis dataKey="name" tick={<XTick />} height={40} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={0} />
+          <XAxis dataKey="name" tick={<XTick />} height={40} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={narrow ? 'preserveStartEnd' : 0} minTickGap={6} />
           <YAxis yAxisId="l" tick={AXIS} axisLine={false} tickLine={false} width={44} />
           <YAxis yAxisId="r" orientation="right" tick={{ ...AXIS, fill: C.act }} axisLine={false} tickLine={false} width={44}
             domain={[0, Math.ceil(pctMax * 1.5 * 10) / 10]} tickFormatter={(v: number) => `${fmtNum(v, 1)}%`} />
@@ -262,21 +277,22 @@ export function SentFgChart({ d, year, onPick, height = 380 }: { d: ReportData; 
           <Tooltip cursor={{ fill: 'rgba(108,92,231,.08)' }}
             formatter={(v: number, n: string) => [n.includes('%') || n.startsWith(label) ? `${fmtNum(v, 2)}%` : fmtNum(v, 0), n]} />
           <Bar yAxisId="l" dataKey="sent" name="Lot ส่งตรวจ" fill={C.std} fillOpacity={0.85} radius={[6, 6, 6, 6]} maxBarSize={30} isAnimationActive={false} onClick={(_: unknown, i: number) => pick(i)}>
-            <LabelList dataKey="sent" content={(p) => <BarValue {...(p as LabelProps)} fmt={(v) => fmtNum(v, 0)} vertical={false} color="#2a2750" />} />
+            {!narrow && <LabelList dataKey="sent" content={(p) => <BarValue {...(p as LabelProps)} fmt={(v) => fmtNum(v, 0)} vertical={false} color="#2a2750" />} />}
           </Bar>
           <Bar yAxisId="f" dataKey="fg" name="Lot out FG" fill={C.varDown} radius={[6, 6, 6, 6]} maxBarSize={30} isAnimationActive={false} onClick={(_: unknown, i: number) => pick(i)}>
             <LabelList dataKey="fg" content={(p) => {
-              // Count sits inside the bar in white, so the % line crossing above never covers it.
+              // Count sits inside the bar in dark ink (white fails contrast on pink), so the % line crossing above never covers it.
               const { x = 0, y = 0, width = 0, height = 0, value } = p as LabelProps;
               if (value === null || value === undefined) return null;
-              if (value === 0) return <text x={x + width / 2} y={y - 4} textAnchor="middle" fontSize={10} fill="#aeacc4">0</text>;
-              return <text x={x + width / 2} y={y + Math.min(14, height - 3)} textAnchor="middle" fontSize={11} fontWeight={700} fill="#fff">{fmtNum(value, 0)}</text>;
+              // No count is drawn for 0: the 0.00% pill of that month already says it.
+              if (value === 0) return null;
+              return <text x={x + width / 2} y={y + Math.min(15, height - 3)} textAnchor="middle" fontSize={12} fontWeight={700} fill="#1f1d3d">{fmtNum(value, 0)}</text>;
             }} />
           </Bar>
           <Line yAxisId="r" dataKey="target" name={`${label} ≤`} stroke={C.target} strokeWidth={2} strokeDasharray="6 4" type="stepAfter" dot={false} isAnimationActive={false} />
           <Line yAxisId="r" dataKey="pct" name="Lot out FG %" stroke={C.act} strokeWidth={2.4} connectNulls={false} isAnimationActive={false}
             dot={{ r: 4, fill: '#fff', stroke: C.act, strokeWidth: 2 }}>
-            <LabelList dataKey="pct" content={(p) => <PctPill {...(p as { x?: number; y?: number; value?: number | null })} color={C.act} />} />
+            {!narrow && <LabelList dataKey="pct" content={(p) => <PctPill {...(p as { x?: number; y?: number; value?: number | null })} color={C.act} />} />}
           </Line>
         </ComposedChart>
       </ResponsiveContainer>

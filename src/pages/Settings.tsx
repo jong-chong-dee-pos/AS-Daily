@@ -4,7 +4,7 @@ import { useAuth } from '../auth/context';
 import { ACCESS_TH, AREAS, accessOf, roleFor } from '../areas';
 import { DEFAULT_LOT_OUT_TARGET, DEFAULT_PER_TARGET } from '../calc/cost';
 import { DEFAULT_TARGET_LABELS, type AppUser, type AreaAccess, type AreaId, type Line, type MonthlySummary, type Setter, type Target, type TargetLabels, type Worker } from '../types';
-import { fmtMonth, THAI_MONTHS } from '../ui/format';
+import { fmtMonth, MONTHS } from '../ui/format';
 import { CrudTable } from '../ui/CrudTable';
 import type { WorkerRef } from '../data/artifactRepo';
 import { parseNum } from './EntryDaily';
@@ -366,7 +366,7 @@ export function SummarySection() {
         { label: 'เดือน', render: (r, set) => (
           <select aria-label={`เดือน ${r.month}`} value={isYear(r.month) ? '' : r.month.slice(5, 7)} onChange={(e) => set({ month: r.month.slice(0, 4) + (e.target.value ? `-${e.target.value}` : '') })}>
             <option value="">ทั้งปี</option>
-            {THAI_MONTHS.map((t, i) => <option key={t} value={String(i + 1).padStart(2, '0')}>{t}</option>)}
+            {MONTHS.map((t, i) => <option key={t} value={String(i + 1).padStart(2, '0')}>{t}</option>)}
           </select>
         ) },
         { label: '% PER', className: 'num', render: (r, set) => <input aria-label={`% PER ${r.month}`} className={bad(r.per) ? 'invalid' : ''} value={r.per} onChange={(e) => set({ per: e.target.value })} /> },

@@ -17,6 +17,12 @@ import { costPieces, headPieces, opsDerived } from '../calc/ops';
 import { buildCostRows, costTotal } from './ReportCost';
 import { periodName } from './ReportPer';
 import { CostMissing, missingCostMonths } from '../ui/CostMissing';
+import { JumpBar, type JumpItem } from '../ui/JumpBar';
+
+const JUMPS: JumpItem[] = [
+  { id: 'sec-summary', label: 'สรุป' }, { id: 'sec-per', label: '% PER / Lot out' }, { id: 'sec-cost', label: 'ต้นทุน' },
+  { id: 'sec-ops', label: 'ยอดผลิต / ต่อชิ้น' }, { id: 'sec-otd', label: '%OTD' },
+];
 
 /** Progress track with a target tick; `max` sets the scale. */
 function Meter({ value, target, max, ok }: { value: number | null; target: number; max: number; ok: boolean | null }) {
@@ -92,7 +98,8 @@ export function Dashboard() {
       {!s && !error && <p className="empty">กำลังโหลด…</p>}
       {s && (
         <div id="dashboard">
-          <div className="cards">
+          {yd && <JumpBar items={JUMPS} />}
+          <div className="cards" id="sec-summary">
             <div className="card c-per">
               <div className="card-head"><span className="card-icon"><Icon name="per" /></span><span className="label">% PER เฉลี่ย</span></div>
               <div className="value" data-testid="kpi-per">{fmtNum(s.per)}%</div>
@@ -120,18 +127,19 @@ export function Dashboard() {
           </div>
           {yd && (
             <>
-              <h2 className="section-title">% PER และ Lot out รายเดือน <small>ปี {year}</small></h2>
+              <h2 className="section-title" id="sec-per">% PER และ Lot out รายเดือน <small>ปี {year}</small></h2>
               <div className="charts">
                 <PerMonthChart d={yd} year={year} height={320} />
                 <LotMonthChart d={yd} year={year} height={320} />
               </div>
-              <h2 className="section-title">ต้นทุนรายเดือน <small>Standard, Actual, Variance ปี {year}</small></h2>
-              <div className="charts">
+              <h2 className="section-title" id="sec-cost">ต้นทุนรายเดือน <small>Standard, Actual, Variance ปี {year}</small></h2>
+              {/* Full width: three bars a month, each with its value, need the room. */}
+              <div className="charts single">
                 {COST_CATEGORIES.map((cat) => <CostChart key={cat} d={yd} year={year} cat={cat} label={COST_LABEL[cat]} height={360} />)}
               </div>
-              <h2 className="section-title">ยอดผลิตและต้นทุนต่อชิ้น <small>ปี {year}</small></h2>
+              <h2 className="section-title" id="sec-ops">ยอดผลิตและต้นทุนต่อชิ้น <small>ปี {year}</small></h2>
               <OpsCharts d={yd} year={year} />
-              <h2 className="section-title">%OTD FG 81 <small>{otdMonth ? `ตารางเดือน ${fmtMonth(otdMonth.month)}` : `ปี ${year}`}</small></h2>
+              <h2 className="section-title" id="sec-otd">%OTD FG 81 <small>{otdMonth ? `ตารางเดือน ${fmtMonth(otdMonth.month)}` : `ปี ${year}`}</small></h2>
               <OtdSection d={yd} year={year} month={otdMonth} />
             </>
           )}

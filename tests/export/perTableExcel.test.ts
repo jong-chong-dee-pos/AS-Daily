@@ -22,9 +22,9 @@ const argb = (c: ExcelJS.Cell) => (c.fill as ExcelJS.FillPattern | undefined)?.f
 
 describe('% PER table download', () => {
   it('line view: same columns as the screen, dates with weekday, Setter rows, colours and the target row', async () => {
-    const ws = await read(await buildPerTableWorkbook(buildTable(d, nov, 'line'), 'ตาราง % PER รายไลน์ · พ.ย. 2026', true));
-    expect(ws.getCell('A1').value).toBe('ตาราง % PER รายไลน์ · พ.ย. 2026');
-    expect([ws.getCell('A2').value, ws.getCell('B2').value, ws.getCell('C2').value]).toEqual(['ไลน์', 'พนักงาน', 'วันที่ใน พ.ย. 2026']);
+    const ws = await read(await buildPerTableWorkbook(buildTable(d, nov, 'line'), 'ตาราง % PER รายไลน์ · Nov 2026', true));
+    expect(ws.getCell('A1').value).toBe('ตาราง % PER รายไลน์ · Nov 2026');
+    expect([ws.getCell('A2').value, ws.getCell('B2').value, ws.getCell('C2').value]).toEqual(['ไลน์', 'พนักงาน', 'วันที่ใน Nov 2026']);
     expect(ws.getCell('C3').value).toBe('1\nอา'); // 1 Nov 2026 is a Sunday
     expect(ws.getCell('D3').value).toBe('2\nจ');
     expect(ws.getCell(2, 33).value).toBe('เฉลี่ย'); // 2 + 30 days + 1
