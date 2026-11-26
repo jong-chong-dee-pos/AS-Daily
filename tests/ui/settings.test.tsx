@@ -126,6 +126,13 @@ describe('Settings import', () => {
     fireEvent.click(screen.getByRole('button', { name: 'นำเข้า' }));
     await waitFor(() => expect(repo.importDocs).toHaveBeenCalledWith(docs.slice(0, 2), expect.any(Function)));
   });
+  it('accepts Part Warehouse documents and nothing else under areas/', async () => {
+    render(<RepoContext.Provider value={fakeRepo({})}><ImportSection /></RepoContext.Provider>);
+    const docs = [{ path: 'areas/partWarehouse/monthly/2026-01', data: { month: '2026-01' } }, { path: 'areas/partWarehouse/settings/targets', data: { per: 120 } },
+      { path: 'areas/assembly/perMonth/2026-01', data: {} }, { path: 'areas/partWarehouse/x/y/z', data: {} }];
+    fireEvent.change(screen.getByLabelText('ไฟล์ข้อมูล'), { target: { files: [new File([JSON.stringify(docs)], 'pw.json')] } });
+    await waitFor(() => screen.getByText('พบ 2 รายการ: Part Warehouse รายเดือน 1, Part Warehouse ข้อมูลปีก่อนและเป้า 1'));
+  });
   it('lists the monthly production figures a file holds', async () => {
     render(<RepoContext.Provider value={fakeRepo({})}><ImportSection /></RepoContext.Provider>);
     const docs = [{ path: 'opsMonthly/2026-01', data: { month: '2026-01' } }, { path: 'opsMonthly/2026-02', data: { month: '2026-02' } }];

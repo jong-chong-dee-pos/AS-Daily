@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { RequireArea, atLeast, useAuth } from '../auth/context';
-import { ACCESS_TH, AREAS, accessOf, ap, areaById } from '../areas';
+import { ACCESS_TH, AREAS, accessOf, areaById, inArea } from '../areas';
 import type { AppUser, AreaAccess, AreaId } from '../types';
 
 type IconName = 'home' | 'per' | 'lot' | 'cost' | 'entry' | 'coin' | 'gear';
@@ -25,7 +25,8 @@ export function Icon({ name }: { name: IconName }) {
 
 /** Who may see a menu item: anyone who can view the area, its data-entry users, or system admins. */
 type Need = 'view' | 'edit' | 'admin';
-const GROUPS: { title: string; items: { to: string; label: string; icon: IconName; min: Need; keepPeriod?: boolean }[] }[] = [
+type Group = { title: string; items: { to: string; label: string; icon: IconName; min: Need; keepPeriod?: boolean }[] };
+const ASSEMBLY: Group[] = [
   { title: 'รายงาน', items: [
     { to: '/', label: 'Dashboard', icon: 'home', min: 'view', keepPeriod: true },
     { to: '/report/per', label: '% PER', icon: 'per', min: 'view', keepPeriod: true },
@@ -38,6 +39,15 @@ const GROUPS: { title: string; items: { to: string; label: string; icon: IconNam
   ] },
   { title: 'ระบบ', items: [{ to: '/settings', label: 'ตั้งค่า', icon: 'gear', min: 'admin' }] },
 ];
+const PART_WAREHOUSE: Group[] = [
+  { title: 'รายงาน', items: [{ to: '/', label: 'Dashboard', icon: 'home', min: 'view', keepPeriod: true }] },
+  { title: 'บันทึกข้อมูล', items: [
+    { to: '/entry/daily', label: 'กรอกแผนประกอบรายวัน', icon: 'entry', min: 'edit' },
+    { to: '/entry/monthly', label: 'กรอกข้อมูลรายเดือน', icon: 'coin', min: 'edit' },
+  ] },
+  { title: 'ระบบ', items: [{ to: '/settings', label: 'ตั้งค่า', icon: 'gear', min: 'admin' }] },
+];
+const MENUS: Record<AreaId, Group[]> = { assembly: ASSEMBLY, partWarehouse: PART_WAREHOUSE };
 const allowed = (user: AppUser | null, area: AreaId, min: Need) => {
   const a = accessOf(user, area);
   return min === 'admin' ? atLeast(user?.role, 'admin') : min === 'edit' ? a === 'edit' : a !== 'none';
@@ -56,14 +66,14 @@ export function Layout({ area = 'assembly' }: { area?: AreaId }) {
         <div className="brand"><span className="brand-mark">AS</span><span>รายงานประจำวัน</span></div>
         <AreaSwitcher current={area} />
         <nav aria-label="เมนูหลัก">
-          {GROUPS.map((g) => {
+          {MENUS[area].map((g) => {
             const items = g.items.filter((n) => allowed(user, area, n.min));
             if (!items.length) return null;
             return (
               <div className="nav-group" key={g.title}>
                 <div className="nav-title">{g.title}</div>
                 {items.map((n) => (
-                  <NavLink key={n.to} to={{ pathname: ap(n.to), search: n.keepPeriod ? search : '' }} end={n.to === '/'}>
+                  <NavLink key={n.to} to={{ pathname: inArea(area, n.to), search: n.keepPeriod ? search : '' }} end={n.to === '/'}>
                     <Icon name={n.icon} /><span>{n.label}</span>
                   </NavLink>
                 ))}

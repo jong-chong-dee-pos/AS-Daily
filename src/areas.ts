@@ -8,11 +8,13 @@ import type { AppUser, AreaAccess, AreaId, Role } from './types';
 export interface Area { id: AreaId; label: string; path: string; ready: boolean; description: string }
 export const AREAS: Area[] = [
   { id: 'assembly', label: 'Assembly', path: '/assembly', ready: true, description: '% PER, Lot out, ต้นทุน และ %OTD ของงานประกอบ' },
-  { id: 'partWarehouse', label: 'Part Warehouse', path: '/part-warehouse', ready: false, description: 'คลังชิ้นส่วน' },
+  { id: 'partWarehouse', label: 'Part Warehouse', path: '/part-warehouse', ready: true, description: 'Inventory, Turn Over, แผนประกอบรายวัน, Missing Part, Stock Diff, Plan Count และ % Performance' },
 ];
 export const areaById = (id: AreaId) => AREAS.find((a) => a.id === id)!;
 /** Path inside Assembly, e.g. ap('/entry/cost?m=2026-11') → '/assembly/entry/cost?m=2026-11'. */
 export const ap = (path: string) => `/assembly${path === '/' ? '' : path}`;
+/** Path inside any area, e.g. inArea('partWarehouse', '/entry/daily') → '/part-warehouse/entry/daily'. */
+export const inArea = (area: AreaId, path: string) => `${areaById(area).path}${path === '/' ? '' : path}`;
 
 /** Access when a user has no entry for the area: Assembly follows the old role, new areas start closed. */
 const fallback = (role: Role, area: AreaId): AreaAccess =>

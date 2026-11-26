@@ -1,3 +1,5 @@
+import type { PwBaseline, PwMonth, PwPlanDay, PwTargets } from '../types';
+import { PW_DEFAULT_TARGETS } from '../calc/pw';
 import type { AppUser, Role, Absence, AbsenceDay, CostMonth, OpsMonth, OtdMonth, Line, LotEntry, MonthlySummary, PerEntry, Setter, Target, TargetLabels, Worker } from '../types';
 
 /** The subset of the Claude artifact `db` capability this app uses. */
@@ -12,6 +14,8 @@ export interface ArtifactDb {
   collection(path: string): ArtifactQuery;
 }
 
+const PW = 'areas/partWarehouse';
+type PwPlanDoc = { days?: Record<string, PwPlanDay['qty']> };
 type PerMonthDoc = { entries?: Record<string, Omit<PerEntry, 'date' | 'lineId'>> };
 type LotMonthDoc = { days?: Record<string, Omit<LotEntry, 'date'>> };
 type AbsenceMonthDoc = { days?: Record<string, Absence[]> };
@@ -199,6 +203,33 @@ export function makeArtifactRepo(db: ArtifactDb, uploadImage?: (f: Blob) => Prom
     saveTarget: (t: Target) => db.doc(`targets/${t.month}`).set({ ...t, ...stamp() }),
     saveUser: async (_u: AppUser) => {},
     saveUserRole: async (_t: string, _r: Role, _n: string, _e: string) => {},
+
+    // ---- Part Warehouse: everything under areas/partWarehouse/, apart from Assembly ----
+    getPwMonths: (from: string, to: string) => between<PwMonth>(`${PW}/monthly`, from, to),
+    savePwMonth: (m: PwMonth) => db.doc(`${PW}/monthly/${m.month}`).set({ ...m, ...stamp() }),
+    async getPwPlan(month: string): Promise<PwPlanDay[]> {
+      const d = await read<PwPlanDoc>(`${PW}/plan/${month}`);
+      return Object.entries(d.days ?? {}).map(([date, qty]) => ({ date, qty })).sort((a, b) => a.date.localeCompare(b.date));
+    },
+    /** Saves one day of the plan; an empty day is removed. */
+    async savePwPlanDay(day: PwPlanDay) {
+      const path = `${PW}/plan/${day.date.slice(0, 7)}`;
+      const days = { ...(await read<PwPlanDoc>(path)).days };
+      const qty = Object.fromEntries(Object.entries(day.qty).filter(([, v]) => typeof v === 'number'));
+      if (Object.keys(qty).length) days[day.date] = qty; else delete days[day.date];
+      await db.doc(path).set({ month: day.date.slice(0, 7), days, ...stamp() });
+    },
+    async getPwTargets(): Promise<PwTargets> {
+      const d = await read<Partial<PwTargets>>(`${PW}/settings/targets`);
+      const pick = (k: keyof PwTargets) => (typeof d[k] === 'number' ? d[k] as number : PW_DEFAULT_TARGETS[k]);
+      return { missingMax: pick('missingMax'), stockDiff: pick('stockDiff'), per: pick('per'), countItem: pick('countItem'), manpower: pick('manpower') };
+    },
+    savePwTargets: (t: PwTargets) => db.doc(`${PW}/settings/targets`).set({ ...t, ...stamp() }),
+    /** The columns before January (earlier year-ends, AVG-25 …) and the year whose charts show them. */
+    async getPwBaselines(): Promise<{ forYear: number | null; columns: PwBaseline[] }> {
+      const d = await read<{ forYear?: number; columns?: PwBaseline[] }>(`${PW}/settings/baselines`);
+      return { forYear: d.forYear ?? null, columns: d.columns ?? [] };
+    },
   };
   return repo;
 }
