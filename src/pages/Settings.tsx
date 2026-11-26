@@ -84,7 +84,7 @@ export function LinesSection() {
             {setters.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
           </select>
         ) },
-        { label: 'พนักงานประจำ', render: (l) => <span className="muted">{l.defaultWorkerIds.map(name).filter(Boolean).join(', ') || '—'}</span> },
+        { label: 'พนักงานประจำ', render: (l) => <span className="muted nowrap">{l.defaultWorkerIds.map(name).filter(Boolean).join(', ') || '—'}</span> },
         { label: 'นับเข้าค่ารวม', render: (l, set) => <input type="checkbox" aria-label={`นับเข้าค่ารวม ${l.code}`} checked={l.includeInTotal} onChange={(e) => set({ includeInTotal: e.target.checked })} /> },
         { label: 'ใช้งาน', render: (l, set) => <input type="checkbox" aria-label={`ใช้งาน ${l.code}`} checked={l.active} onChange={(e) => set({ active: e.target.checked })} /> },
       ]}

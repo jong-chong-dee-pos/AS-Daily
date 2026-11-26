@@ -156,7 +156,7 @@ describe('Part Warehouse settings and pages', () => {
     const { db } = memDb();
     const repo = makeArtifactRepo(db) as Repo;
     wrap(repo, <TargetsForm />);
-    fireEvent.change(await screen.findByLabelText('Missing Part: MAX ต่อเดือน'), { target: { value: '7' } });
+    fireEvent.change(await screen.findByLabelText('Missing Part: MAX'), { target: { value: '7' } });
     fireEvent.click(screen.getByRole('button', { name: 'บันทึก' }));
     await screen.findByText(/บันทึกเป้าหมายแล้ว/);
     expect((await repo.getPwTargets()).missingMax).toBe(7);
@@ -172,8 +172,8 @@ describe('Part Warehouse settings and pages', () => {
   });
   it('a Part Warehouse data-entry user gets its entry menu but not Assembly entry', async () => {
     at('/part-warehouse', { ...admin, role: 'editor', areas: { assembly: 'view', partWarehouse: 'edit' } });
-    expect(screen.getByRole('link', { name: 'กรอกแผนประกอบรายวัน' })).toHaveAttribute('href', '/part-warehouse/entry/daily');
-    expect(screen.getByRole('link', { name: 'กรอกข้อมูลรายเดือน' })).toHaveAttribute('href', '/part-warehouse/entry/monthly');
+    expect(screen.getByRole('link', { name: 'แผนประกอบรายวัน' })).toHaveAttribute('href', '/part-warehouse/entry/daily');
+    expect(screen.getByRole('link', { name: 'ข้อมูลรายเดือน' })).toHaveAttribute('href', '/part-warehouse/entry/monthly');
     expect(screen.queryByRole('link', { name: 'ตั้งค่า' })).toBeNull();
     await screen.findByRole('heading', { name: 'Dashboard Part Warehouse' });
   });

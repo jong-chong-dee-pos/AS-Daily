@@ -34,16 +34,16 @@ const ASSEMBLY: Group[] = [
     { to: '/report/cost', label: 'ต้นทุน', icon: 'cost', min: 'view', keepPeriod: true },
   ] },
   { title: 'บันทึกข้อมูล', items: [
-    { to: '/entry/daily', label: 'กรอกข้อมูลรายวัน', icon: 'entry', min: 'edit' },
-    { to: '/entry/cost', label: 'กรอกข้อมูลรายเดือน', icon: 'coin', min: 'edit' },
+    { to: '/entry/daily', label: 'ข้อมูลรายวัน', icon: 'entry', min: 'edit' },
+    { to: '/entry/cost', label: 'ข้อมูลรายเดือน', icon: 'coin', min: 'edit' },
   ] },
   { title: 'ระบบ', items: [{ to: '/settings', label: 'ตั้งค่า', icon: 'gear', min: 'admin' }] },
 ];
 const PART_WAREHOUSE: Group[] = [
   { title: 'รายงาน', items: [{ to: '/', label: 'Dashboard', icon: 'home', min: 'view', keepPeriod: true }] },
   { title: 'บันทึกข้อมูล', items: [
-    { to: '/entry/daily', label: 'กรอกแผนประกอบรายวัน', icon: 'entry', min: 'edit' },
-    { to: '/entry/monthly', label: 'กรอกข้อมูลรายเดือน', icon: 'coin', min: 'edit' },
+    { to: '/entry/daily', label: 'แผนประกอบรายวัน', icon: 'entry', min: 'edit' },
+    { to: '/entry/monthly', label: 'ข้อมูลรายเดือน', icon: 'coin', min: 'edit' },
   ] },
   { title: 'ระบบ', items: [{ to: '/settings', label: 'ตั้งค่า', icon: 'gear', min: 'admin' }] },
 ];

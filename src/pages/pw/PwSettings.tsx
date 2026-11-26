@@ -8,11 +8,11 @@ import { ImportSection, UsersSection } from '../Settings';
 import { NumInput, useEnterMovesDown } from '../../ui/entryKit';
 
 const FIELDS: { key: keyof PwTargets; label: string; hint: string }[] = [
-  { key: 'missingMax', label: 'Missing Part: MAX ต่อเดือน', hint: 'เส้น MAX (รายการ)' },
-  { key: 'stockDiff', label: 'Stock Diff (Amt): Target', hint: 'เส้น Target' },
-  { key: 'per', label: '% Performance: เป้า', hint: 'ทั้งทีมจ่ายและทีมนับสต๊อก (%)' },
-  { key: 'countItem', label: 'ทีมนับสต๊อก: Target Item', hint: 'เส้น Target Item' },
-  { key: 'manpower', label: 'แผนประกอบ: กำลังพล', hint: 'เส้นกำลังพลในกราฟรายวัน (ชิ้น)' },
+  { key: 'missingMax', label: 'Missing Part: MAX', hint: 'รายการต่อเดือน' },
+  { key: 'stockDiff', label: 'Stock Diff: Target', hint: 'Amt' },
+  { key: 'per', label: '% Performance: เป้า', hint: 'ทั้งสองทีม (%)' },
+  { key: 'countItem', label: 'นับสต๊อก: Target Item', hint: 'รายการ' },
+  { key: 'manpower', label: 'แผนประกอบ: กำลังพล', hint: 'ชิ้นต่อวัน' },
 ];
 type Tab = 'targets' | 'history' | 'users' | 'import';
 
