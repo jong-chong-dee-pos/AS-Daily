@@ -71,4 +71,23 @@ describe('EntryCost', () => {
     await waitFor(() => expect(repo.saveCostMonth).toHaveBeenCalled());
     expect(repo.saveOpsMonth).not.toHaveBeenCalled();
   });
+  it('saves the chart notes with the month and loads them again', async () => {
+    const repo = fakeRepo({ ops: [{ month: '2026-03', prodPlan: 5, prodActual: 5, matStd: null, matAct: null, processCost: null, headcount: null, expense: null, notes: { mat: 'ราคาขึ้น' } }] });
+    render(<RepoContext.Provider value={repo}><EntryCost initialMonth="2026-03" /></RepoContext.Provider>);
+    await waitFor(() => expect(screen.getByLabelText('หมายเหตุ Material cost')).toHaveValue('ราคาขึ้น'));
+    const type = (l: string, v: string) => fireEvent.change(screen.getByLabelText(l), { target: { value: v } });
+    type('หมายเหตุ Production Volume', 'หยุดยาว'); type('หมายเหตุ % PER', 'ไลน์ใหม่'); type('หมายเหตุ Lot out', ' ');
+    type('หมายเหตุ %OTD', 'ส่งช้า'); type('หมายเหตุ Material cost', '');
+    fireEvent.click(screen.getByRole('button', { name: 'บันทึก' }));
+    await waitFor(() => expect(repo.saveOpsMonth).toHaveBeenCalledWith(expect.objectContaining({ month: '2026-03', notes: { per: 'ไลน์ใหม่', prod: 'หยุดยาว', otd: 'ส่งช้า' } })));
+  });
+  it('a note alone is enough to keep the month', async () => {
+    const repo = fakeRepo();
+    render(<RepoContext.Provider value={repo}><EntryCost initialMonth="2026-02" /></RepoContext.Provider>);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'บันทึก' })).toBeEnabled());
+    fireEvent.change(screen.getByLabelText('หมายเหตุ Lot out'), { target: { value: 'งานด่วน' } });
+    fireEvent.click(screen.getByRole('button', { name: 'บันทึก' }));
+    await waitFor(() => expect(repo.saveOpsMonth).toHaveBeenCalledWith(expect.objectContaining({ notes: { lot: 'งานด่วน' } })));
+  });
 });
+

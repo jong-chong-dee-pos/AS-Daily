@@ -2,6 +2,7 @@ import { Bar, CartesianGrid, Cell, ComposedChart, LabelList, Line, ReferenceLine
 import { fmtNum } from './format';
 import { useNarrow } from './useNarrow';
 import { PAL } from './palette';
+import { NoteDot, NoteLegend, NoteTip, notedNames } from './chartNotes';
 
 /** One column of a Part Warehouse chart: a month, an earlier year-end, or an average. */
 export interface PwPoint { name: string; [k: string]: string | number | null | undefined }
@@ -15,9 +16,6 @@ const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinit
  * total or a target (`lines`), and the value of each column written above it (`labelKey`).
  * `colorOf` colours single bars by their own value, e.g. red above the MAX line.
  */
-/** Notes never touch the drawing: a small dot under the column's name says one is there to hover. */
-export const NOTE_COLOR = '#f08a24';
-
 export function PwChart({ title, sub, data, stack, bars, lines = [], labelKey, digits = 0, unit = '', height = 320, colorOf, refLine, xInterval, judged, notes = [], extra }: {
   title: string; sub?: string; data: PwPoint[]; stack?: PwSeries[]; bars?: PwSeries[]; lines?: (PwSeries & { dashed?: boolean; dots?: boolean })[];
   labelKey?: string; digits?: number; unit?: string; height?: number; colorOf?: (p: PwPoint) => string | undefined;
@@ -38,8 +36,7 @@ export function PwChart({ title, sub, data, stack, bars, lines = [], labelKey, d
     ? [{ key: 'ok', name: 'ถึงเป้า', color: PAL.good }, { key: 'miss', name: 'ไม่ถึงเป้า', color: PAL.bad },
       ...(data.some((p) => colorOf?.(p) === PAL.prev) ? [{ key: 'prev', name: 'ปีก่อน / ค่าเฉลี่ย', color: PAL.prev }] : [])]
     : series;
-  const noteOf = (p: PwPoint) => notes.map((n) => ({ label: n.label, text: p[n.key] })).filter((n): n is { label: string | undefined; text: string } => typeof n.text === 'string' && !!n.text.trim());
-  const noted = new Set(data.filter((p) => noteOf(p).length).map((p) => String(p.name)));
+  const noted = notedNames(data, notes);
   const legend = [...marks.map((s) => ({ ...s, ln: false, dashed: false })), ...lines.map((l) => ({ ...l, ln: true, dashed: !!l.dashed })),
     ...(refLine ? [{ key: 'ref', name: refLine.name, color: refLine.color, ln: true, dashed: true }] : [])];
   const top = (p: PwPoint) => (labelKey ? p[labelKey] : null);
@@ -52,7 +49,7 @@ export function PwChart({ title, sub, data, stack, bars, lines = [], labelKey, d
         <span className="chart-title">{title}{sub && <small>{sub}</small>}</span>
         <span className="chart-legend">
           {legend.map((l) => <span key={l.key}><i className={l.ln ? (l.dashed ? 'ln' : 'ln solid') : undefined} style={l.ln ? { borderTopColor: l.color } : { background: l.color }} />{l.name}</span>)}
-          {noted.size > 0 && <span className="note-legend"><i style={{ background: NOTE_COLOR }} />มีหมายเหตุ (ชี้เพื่ออ่าน)</span>}
+          <NoteLegend show={noted.size > 0} />
         </span>
       </figcaption>
       {!hasData ? <p className="empty" style={{ height: height - 60 }}>ยังไม่มีข้อมูล</p> : (
@@ -61,7 +58,7 @@ export function PwChart({ title, sub, data, stack, bars, lines = [], labelKey, d
             <CartesianGrid stroke="#eeedf6" strokeDasharray="4 4" vertical={false} />
             <XAxis dataKey="name" tick={<Tick noted={noted} />} height={(twoLine ? 40 : 30) + (noted.size ? 8 : 0)} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={xInterval ?? (crowded ? Math.ceil(data.length / 6) - 1 : 0)} />
             <YAxis tick={AXIS} axisLine={false} tickLine={false} width={48} domain={[0, 'auto']} tickFormatter={(v: number) => (v === 0 ? '0' : fmtNum(v, digits && v < 1 ? digits : 0))} />
-            <Tooltip cursor={{ fill: 'rgba(108,92,231,.06)' }} content={<Tip f={f} noteOf={noteOf} extra={extra} />} />
+            <Tooltip cursor={{ fill: 'rgba(108,92,231,.06)' }} content={<NoteTip fmt={f} keys={notes} extra={extra as ((p: { name: string }) => string[]) | undefined} />} />
             {refLine && <ReferenceLine y={refLine.y} stroke={refLine.color} strokeWidth={2} strokeDasharray="6 4" />}
             {(stack ?? []).map((s, i) => (
               <Bar key={s.key} dataKey={s.key} name={s.name} stackId="s" fill={s.color} maxBarSize={44} isAnimationActive={false}
@@ -108,31 +105,11 @@ function Tick({ x, y, payload, noted }: { x?: number; y?: number; payload?: { va
       <text x={x} y={y + 12} textAnchor="middle" fontSize={12} fill={b ? '#4b4870' : AXIS.fill} fontWeight={b ? 600 : 400}>
         <tspan x={x}>{a}</tspan>{b && <tspan x={x} dy={14}>{b}</tspan>}
       </text>
-      {dot && <circle cx={x} cy={y + (b ? 36 : 22)} r={3.5} fill={NOTE_COLOR} data-testid="note-dot"><title>มีหมายเหตุ</title></circle>}
+      {dot && <NoteDot x={x} y={y} dy={b ? 36 : 22} />}
     </g>
   );
 }
 
-interface TipItem { name?: string; value?: number | string; color?: string; type?: string; payload?: PwPoint }
-/** The usual numbers of the column, then anything extra, then its notes. */
-function Tip({ active, payload, label, f, noteOf, extra }: { active?: boolean; payload?: TipItem[]; label?: string;
-  f: (v: number) => string; noteOf: (p: PwPoint) => { label?: string; text: string }[]; extra?: (p: PwPoint) => string[] }) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0].payload as PwPoint;
-  // The hidden line that writes the totals is marked tooltipType none: it is not a series.
-  const rows = payload.filter((i) => num(i.value) && i.type !== 'none');
-  const more = extra?.(p) ?? [];
-  const ns = noteOf(p);
-  if (!rows.length && !ns.length) return null;
-  return (
-    <div className="pw-tip">
-      <b>{label}</b>
-      {rows.map((i, k) => <div key={k} style={{ color: i.color }}>{i.name}: {f(i.value as number)}</div>)}
-      {more.map((t, k) => <div key={`x${k}`} className="muted">{t}</div>)}
-      {ns.map((n, k) => <div key={`n${k}`} className="pw-tip-note"><b>หมายเหตุ{n.label ? ` ${n.label}` : ''}:</b> {n.text}</div>)}
-    </div>
-  );
-}
 
 interface AboveProps { x?: number; y?: number; width?: number; value?: number | null }
 /** A column's value above it; upright when two bars share a column, so neighbours never overlap. */

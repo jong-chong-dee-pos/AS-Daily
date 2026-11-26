@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRepo } from '../data/RepoContext';
 import { variance } from '../calc/cost';
-import { COST_CATEGORIES, type CostCategory, type OpsMonth } from '../types';
+import { ASM_NOTE_KEYS, COST_CATEGORIES, type AsmNoteKey, type CostCategory, type OpsMonth } from '../types';
 import { fmtBaht, fmtMonth, fmtNum, MONTHS, todayIso } from '../ui/format';
 import { COST_LABEL } from '../ui/labels';
 import { opsDerived } from '../calc/ops';
@@ -9,7 +9,7 @@ import { parseNum } from './EntryDaily';
 import { OtdUpload } from './OtdUpload';
 import { NumInput, useEnterMovesDown, useUnsavedGuard } from '../ui/entryKit';
 
-type OpsKey = Exclude<keyof OpsMonth, 'month'>;
+type OpsKey = Exclude<keyof OpsMonth, 'month' | 'notes'>;
 /** The monthly production and cost figures, in the order they are typed. */
 export const OPS_FIELDS: { key: OpsKey; label: string; unit: string; hint?: string; group: string }[] = [
   { key: 'prodPlan', label: 'ยอดผลิต PLAN (PN)', unit: 'ชิ้น', group: 'Assembly Production Volume' },
@@ -23,6 +23,15 @@ export const OPS_FIELDS: { key: OpsKey; label: string; unit: string; hint?: stri
   { key: 'prodForHead', label: 'ยอดผลิต (Pcs./head)', unit: 'ชิ้น', hint: 'เว้นว่าง = ใช้ยอด ACTUAL (AS)', group: 'Pcs./head และ Expense/Pcs.' },
 ];
 const OPS_GROUPS = [...new Set(OPS_FIELDS.map((f) => f.group))];
+/** Each group's note shows on its dashboard chart. */
+const GROUP_NOTE: Record<string, AsmNoteKey> = {
+  'Assembly Production Volume': 'prod', 'Material cost Variance': 'mat', 'Process Cost per pcs': 'process', 'Pcs./head และ Expense/Pcs.': 'head',
+};
+const NOTE_ARIA: Record<AsmNoteKey, string> = {
+  per: '% PER', lot: 'Lot out', prod: 'Production Volume', mat: 'Material cost', process: 'Process Cost per pcs', head: 'Pcs./head และ Expense/Pcs.', otd: '%OTD',
+};
+type Notes = Record<AsmNoteKey, string>;
+const blankNotes = (): Notes => Object.fromEntries(ASM_NOTE_KEYS.map((k) => [k, ''])) as Notes;
 type OpsVals = Record<OpsKey, string>;
 const blankOps = (): OpsVals => Object.fromEntries(OPS_FIELDS.map((f) => [f.key, ''])) as OpsVals;
 
@@ -38,6 +47,7 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
   const [vals, setVals] = useState<Vals>(blank());
   const [ops, setOps] = useState<OpsVals>(blankOps());
   const [opsSaved, setOpsSaved] = useState(false);
+  const [notes, setNotes] = useState<Notes>(blankNotes());
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(true);
   const [recorded, setRecorded] = useState<Set<string>>(new Set());
@@ -64,6 +74,7 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
       if (!live) return;
       setOps(Object.fromEntries(OPS_FIELDS.map((f) => [f.key, o?.[f.key] == null ? '' : show(o[f.key] as number)])) as OpsVals);
       setOpsSaved(!!o);
+      setNotes({ ...blankNotes(), ...Object.fromEntries(ASM_NOTE_KEYS.map((k) => [k, o?.notes?.[k] ?? ''])) });
       const v = blank();
       if (c) for (const k of COST_CATEGORIES) {
         v[k] = { standard: c.standard[k] == null ? '' : show(c.standard[k]!), actual: c.actual[k] == null ? '' : show(c.actual[k]!), note: c.note?.[k] ?? '' };
@@ -76,12 +87,22 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
   const opsNum = (k: OpsKey) => parseNum(ops[k]);
   const opsInvalid = OPS_FIELDS.some((f) => Number.isNaN(opsNum(f.key)));
   const invalid = opsInvalid || COST_CATEGORIES.some((k) => Number.isNaN(parseNum(vals[k].standard)) || Number.isNaN(parseNum(vals[k].actual)));
+  const kept = ASM_NOTE_KEYS.map((k) => [k, notes[k].trim()] as const).filter(([, v]) => v);
   const opsRecord = (): OpsMonth => {
     const n = (k: OpsKey) => { const v = opsNum(k); return Number.isNaN(v) ? null : v; };
     return { month, prodPlan: n('prodPlan'), prodActual: n('prodActual'), matStd: n('matStd'), matAct: n('matAct'),
-      processCost: n('processCost'), headcount: n('headcount'), expense: n('expense'), prodForCost: n('prodForCost'), prodForHead: n('prodForHead') };
+      processCost: n('processCost'), headcount: n('headcount'), expense: n('expense'), prodForCost: n('prodForCost'), prodForHead: n('prodForHead'),
+      // Only notes with text are kept (Firestore takes no undefined).
+      ...(kept.length ? { notes: Object.fromEntries(kept) as OpsMonth['notes'] } : {}) };
   };
   const derived = opsDerived(opsRecord());
+  const setNote = (k: AsmNoteKey, v: string) => { setNotes((s) => ({ ...s, [k]: v })); setDirty(true); setStatus(''); };
+  const noteBox = (k: AsmNoteKey, label = '') => (
+    <label key={`note-${k}`} className="pw-note"><span>หมายเหตุ{label ? ` ${label}` : ''}</span>
+      <input type="text" aria-label={`หมายเหตุ ${NOTE_ARIA[k]}`} maxLength={300} placeholder="ไม่แสดงบนกราฟ แสดงเมื่อเอาเมาส์ชี้เดือนนั้น"
+        value={notes[k]} onChange={(e) => setNote(k, e.target.value)} />
+    </label>
+  );
   const setOp = (k: OpsKey, v: string) => { setOps((s) => ({ ...s, [k]: v })); setDirty(true); setStatus(''); };
   const set = (k: CostCategory, f: 'standard' | 'actual' | 'note', v: string) => { setVals((s) => ({ ...s, [k]: { ...s[k], [f]: v } })); setDirty(true); setStatus(''); };
 
@@ -93,7 +114,7 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
       const notes = Object.fromEntries(COST_CATEGORIES.map((k) => [k, vals[k].note.trim()]).filter(([, n]) => n));
       const o = opsRecord();
       // A month with no production figures gets no document, unless one is being cleared.
-      if (opsSaved || OPS_FIELDS.some((f) => o[f.key] != null)) { await repo.saveOpsMonth(o); setOpsSaved(true); }
+      if (opsSaved || OPS_FIELDS.some((f) => o[f.key] != null) || o.notes) { await repo.saveOpsMonth(o); setOpsSaved(true); }
       await repo.saveCostMonth({ month, standard: pick('standard'), actual: pick('actual'), ...(Object.keys(notes).length ? { note: notes } : {}) });
       setStatus(`บันทึกข้อมูลเดือน ${fmtMonth(month)} แล้ว`); setDirty(false);
       if (pending) { setMonth(pending); setPending(null); }
@@ -138,6 +159,7 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
                 </label>
               ))}
             </div>
+            {noteBox(GROUP_NOTE[g])}
           </fieldset>
         ))}
         <div className="ops-calc" aria-label="ค่าที่ระบบคำนวณ">
@@ -175,6 +197,12 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
             })}
           </tbody>
         </table>
+      </div>
+      <div className="panel" style={{ maxWidth: 1100, marginTop: 16 }}>
+        <div className="panel-head"><h2>หมายเหตุของกราฟรายเดือน</h2><span className="hint">ไม่แสดงบนกราฟ แสดงเมื่อเอาเมาส์ชี้เดือนนั้นใน Dashboard</span></div>
+        {noteBox('per', '% PER')}
+        {noteBox('lot', 'Lot out')}
+        {noteBox('otd', '%OTD')}
       </div>
       {invalid && <p className="error" role="alert">กรอกตัวเลข 0 ขึ้นไป</p>}
       <div className="actions savebar">

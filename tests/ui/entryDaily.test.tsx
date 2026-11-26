@@ -136,4 +136,17 @@ describe('EntryDaily', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('ไลน์ SL1 มีหมายเหตุแต่ยังไม่ได้กรอก % PER');
     expect(screen.getByRole('button', { name: 'บันทึก' })).toBeDisabled();
   });
+  it('saves a note for the day\'s Lot out and loads it again', async () => {
+    const repo = setup('2026-11-04');
+    await waitFor(() => screen.getByLabelText('Lot ส่งตรวจ'));
+    fireEvent.change(screen.getByLabelText('Lot ส่งตรวจ'), { target: { value: '10' } });
+    fireEvent.change(screen.getByLabelText('หมายเหตุ Lot out'), { target: { value: ' เครื่องเสีย ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'บันทึก' }));
+    await waitFor(() => expect(repo.saveLotDay).toHaveBeenCalledWith({ date: '2026-11-04', sent: 10, patrol: 0, fg: 0, items: [], note: 'เครื่องเสีย' }));
+  });
+  it('shows a saved Lot out note', async () => {
+    const repo = fakeRepo({ ...data, lot: [{ date: '2026-11-05', sent: 5, patrol: 0, fg: 0, items: [], note: 'งานด่วน' }] });
+    render(<RepoContext.Provider value={repo}><EntryDaily initialDate="2026-11-05" /></RepoContext.Provider>);
+    await waitFor(() => expect(screen.getByLabelText('หมายเหตุ Lot out')).toHaveValue('งานด่วน'));
+  });
 });

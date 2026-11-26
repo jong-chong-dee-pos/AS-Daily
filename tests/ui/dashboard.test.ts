@@ -44,6 +44,7 @@ describe('cost not entered', () => {
 });
 
 import { opsSeries, otdMonthSeries } from '../../src/ui/OpsCharts';
+import { costSeries, lotDailySeries, lotMonthSeries, perMonthSeries } from '../../src/ui/ExcelCharts';
 describe('Dashboard monthly figures and %OTD', () => {
   const base = { lines: [], workers: [], per: [], lot: [], cost: [], targets: [], summaries: [], prevYear: { lot: [], summaries: [], yearSummary: null } };
   it('one point per month with computed per-piece values', () => {
@@ -60,5 +61,33 @@ describe('Dashboard monthly figures and %OTD', () => {
     expect(s.map((p) => p.name).slice(0, 2)).toEqual(['Dec-24', 'Jan']);
     expect(s).toHaveLength(13);
     expect(s.find((p) => p.name === 'Nov')!.pct).toBe(63.4);
+  });
+});
+
+describe('Assembly chart notes ride along for the tooltip', () => {
+  const base = { lines: [], workers: [], per: [], lot: [], cost: [], targets: [], summaries: [], prevYear: { lot: [], summaries: [], yearSummary: null } };
+  it('monthly notes reach each chart series; blank notes stay null', () => {
+    const d = { ...base,
+      ops: [{ month: '2026-03', prodPlan: 100, prodActual: 90, matStd: null, matAct: null, processCost: null, headcount: null, expense: null,
+        notes: { per: 'ไลน์ใหม่', lot: 'งานด่วน', prod: 'หยุดยาว', mat: 'ราคาขึ้น', process: 'ค่าไฟ', head: 'คนลาออก', otd: 'ส่งช้า' } },
+      { month: '2026-04', prodPlan: 1, prodActual: 1, matStd: null, matAct: null, processCost: null, headcount: null, expense: null, notes: { prod: '  ' } }],
+      otd: [{ month: '2026-03', pct: 0.8, source: 'upload' }],
+    } as ReportData;
+    const s = opsSeries(d, 2026);
+    expect(s[2]).toMatchObject({ noteProd: 'หยุดยาว', noteMat: 'ราคาขึ้น', noteProcess: 'ค่าไฟ', noteHead: 'คนลาออก' });
+    expect(s[3].noteProd).toBeNull();
+    expect(otdMonthSeries(d, 2026).find((p) => p.name === 'Mar')!.note).toBe('ส่งช้า');
+    expect(perMonthSeries(d, 2026)[2].note).toBe('ไลน์ใหม่');
+    expect(lotMonthSeries(d, 2026)[2].note).toBe('งานด่วน');
+    expect(perMonthSeries(d, 2026)[3].note).toBeNull();
+  });
+  it('a day note shows on its day of the daily Lot out chart', () => {
+    const s = lotDailySeries([{ date: '2026-11-05', sent: 10, patrol: 0, fg: 1, note: 'เครื่องเสีย' }], '2026-11', []);
+    expect(s[4].note).toBe('เครื่องเสีย');
+    expect(s[3].note).toBeNull();
+  });
+  it('the cost notes reach the cost chart', () => {
+    const d = { ...base, cost: [{ month: '2026-10', standard: { electric: 1, laborOT: null, laborSub: null, consumed: null }, actual: { electric: 2, laborOT: null, laborSub: null, consumed: null }, note: { electric: 'แอร์เสีย' } }] } as ReportData;
+    expect(costSeries(d, 2026, 'electric').find((p) => p.name === 'Oct')!.note).toBe('แอร์เสีย');
   });
 });

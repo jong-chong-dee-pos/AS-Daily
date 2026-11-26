@@ -59,6 +59,8 @@ export interface LotEntry {
   fg: number;
   /** Optional detail of each lot out: part number, type, note and photos. */
   items?: LotItem[];
+  /** The day's note on Lot out, shown only in the daily Lot out chart's tooltip. */
+  note?: string;
 }
 
 export type LotKind = 'patrol' | 'fg';
@@ -155,7 +157,16 @@ export interface OpsMonth {
   prodForCost?: number | null;
   /** Pieces for Pcs./head and Expense/Pcs. when it differs from ACTUAL (AS); blank = ACTUAL. */
   prodForHead?: number | null;
+  /** A month note per chart topic, shown only in that chart's tooltip (never drawn on it). */
+  notes?: Partial<Record<AsmNoteKey, string>>;
 }
+
+/**
+ * Assembly topics with a month note on the monthly page: %PER and Lot out (their charts come from
+ * the daily page), the four production charts and %OTD. Cost keeps its own note per category.
+ */
+export const ASM_NOTE_KEYS = ['per', 'lot', 'prod', 'mat', 'process', 'head', 'otd'] as const;
+export type AsmNoteKey = typeof ASM_NOTE_KEYS[number];
 
 /** One product group's On-Time Delivery for a month: plan and on-time qty per week W1–W4. */
 export interface OtdRow {
