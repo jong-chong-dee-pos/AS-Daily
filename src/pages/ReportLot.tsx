@@ -2,7 +2,7 @@ import { ap } from '../areas';
 import { useMemo } from 'react';
 import { useReportData, type ReportData } from '../data/useReportData';
 import { datesIn, monthsIn, monthOf } from '../calc/period';
-import { lotByWeek, lotTotals, type LotTotals } from '../calc/lotout';
+import { lotByWeek, lotPct, lotTotals, type LotTotals } from '../calc/lotout';
 import { monthlyLot, sumLot } from '../calc/monthly';
 import { targetFor } from '../calc/cost';
 import type { Period } from '../types';
@@ -26,8 +26,8 @@ export function buildLotRows(d: ReportData, p: Period): { rows: Row[]; prevYearT
     let prev: LotTotals | null = sumLot(monthlyLot(prevMonths, d.prevYear.lot, d.prevYear.summaries));
     if (prev.sent === 0 && d.prevYear.yearSummary?.lotSent) {
       const y = d.prevYear.yearSummary;
-      const lotSent = y.lotSent ?? 0, out = y.lotOut ?? 0;
-      prev = { sent: lotSent, patrol: 0, fg: out, out, pct: lotSent ? (out / lotSent) * 100 : null };
+      const lotSent = y.lotSent ?? 0, out = y.lotOut ?? 0, fg = y.lotFg ?? out;
+      prev = { sent: lotSent, patrol: Math.max(0, out - fg), fg, out, pct: lotPct(fg, lotSent) };
     }
     return { rows, prevYearTotal: prev.sent ? prev : null };
   }
@@ -56,7 +56,7 @@ export function ReportLot() {
   const chartHasDays = !!chartMonth && !!yd?.lot.some((e) => e.date.startsWith(chartMonth));
   const monthSummary = data && period.kind === 'month' && !data.lot.length ? data.summaries.find((s) => s.month === period.month) : undefined;
   const built = useMemo(() => (data ? buildLotRows(data, period) : null), [data, period]);
-  const head = ['ช่วง', 'Lot ส่งตรวจ', 'Lot out Patrol', 'Lot out FG', 'Lot out รวม', 'Lot out %', 'เป้า ≤%'];
+  const head = ['ช่วง', 'Lot ส่งตรวจ', 'Lot out Patrol', 'Lot out FG', 'Lot out รวม', 'Lot out FG %', 'เป้า ≤%'];
   const exportRows = built ? [[`Lot out ${periodName(period)}`], head,
     ...built.rows.map((r) => [r.label, r.t.sent, r.t.patrol, r.t.fg, r.t.out, r.t.pct === null ? null : Math.round(r.t.pct * 100) / 100, r.target])] : [];
   return (
@@ -111,7 +111,7 @@ export function ReportLot() {
           </div>
           {built.rows.every((r) => !r.t.sent) && <p className="empty">ไม่มีข้อมูลในช่วงนี้</p>}
           {built.prevYearTotal && (
-            <p className="muted">ปีก่อนหน้า: ส่งตรวจ {built.prevYearTotal.sent} ครั้ง · Lot out {built.prevYearTotal.out} ครั้ง · {fmtNum(built.prevYearTotal.pct, 2)}%</p>
+            <p className="muted">ปีก่อนหน้า: ส่งตรวจ {built.prevYearTotal.sent} ครั้ง · Lot out FG {built.prevYearTotal.fg} ครั้ง · {fmtNum(built.prevYearTotal.pct, 2)}%</p>
           )}
         </div>
       )}
