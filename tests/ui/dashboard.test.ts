@@ -57,8 +57,8 @@ describe('Dashboard monthly figures and %OTD', () => {
   it('%OTD by month starts with the previous Decembers that are known', () => {
     const d = { ...base, otd: [{ month: '2024-12', pct: 0.71, source: 'history' }, { month: '2026-11', pct: 0.6341, source: 'upload' }] } as ReportData;
     const s = otdMonthSeries(d, 2026);
-    expect(s.map((p) => p.name).slice(0, 2)).toEqual(['ธ.ค.-24', 'ม.ค.']);
+    expect(s.map((p) => p.name).slice(0, 2)).toEqual(['Dec-24', 'Jan']);
     expect(s).toHaveLength(13);
-    expect(s.find((p) => p.name === 'พ.ย.')!.pct).toBe(63.4);
+    expect(s.find((p) => p.name === 'Nov')!.pct).toBe(63.4);
   });
 });

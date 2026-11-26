@@ -85,7 +85,7 @@ function BaselineTable() {
   const n = (v: number | null | undefined, d = 2) => (v == null ? '' : fmtNum(v, d));
   return (
     <div className="panel">
-      <div className="panel-head"><h2>ข้อมูลปีก่อน</h2><span className="hint">แสดงหน้ากราฟของปี {base.forYear} ก่อนเดือน ม.ค. · แก้ไขโดยนำเข้าไฟล์ใหม่</span></div>
+      <div className="panel-head"><h2>ข้อมูลปีก่อน</h2><span className="hint">แสดงหน้ากราฟของปี {base.forYear} ก่อนเดือน Jan · แก้ไขโดยนำเข้าไฟล์ใหม่</span></div>
       <div className="tablewrap">
         <table>
           <thead><tr><th>คอลัมน์</th><th className="num">PUR</th><th className="num">WIP</th><th className="num">Missing Part</th><th className="num">MAX</th>

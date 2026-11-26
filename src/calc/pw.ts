@@ -29,7 +29,7 @@ export const planTotal = (d: Pick<PwPlanDay, 'qty'> | undefined) =>
 // ---------- chart series ----------
 
 export interface PwChartPoint { name: string; [k: string]: string | number | null }
-const SHORT = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+const SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 export const yearMonths = (year: number) => SHORT.map((name, i) => ({ name, month: `${year}-${String(i + 1).padStart(2, '0')}` }));
 
 /** Baseline columns shown for `year`: the imported ones for their own year, else last December when entered. */
@@ -52,7 +52,7 @@ export function inventorySeries(year: number, months: PwMonth[], base: { forYear
   const cols = baseCols(year, 'inventory', base).map((c) => point(c.label, c.pur, c.inh));
   if (!cols.length) {
     const dec = months.find((m) => m.month === `${year - 1}-12`);
-    if (dec && (bucketTotal(dec.pur) !== null || bucketTotal(dec.inh) !== null)) cols.push(point(`ธ.ค. ${year - 1}`, dec.pur, dec.inh));
+    if (dec && (bucketTotal(dec.pur) !== null || bucketTotal(dec.inh) !== null)) cols.push(point(`Dec ${year - 1}`, dec.pur, dec.inh));
   }
   return [...cols, ...yearMonths(year).map(({ name, month }) => { const m = months.find((x) => x.month === month); return point(name, m?.pur, m?.inh); })];
 }

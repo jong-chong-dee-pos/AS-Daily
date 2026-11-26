@@ -3,7 +3,7 @@ import { useRepo } from '../../data/RepoContext';
 import { AGE_BUCKETS, type AgeBucket, type Buckets, type PwMonth } from '../../types';
 import { bucketTotal, emptyBuckets } from '../../calc/pw';
 import { AGE_COLOR, AGE_LABEL } from '../../ui/pwLabels';
-import { fmtMonth, fmtNum, THAI_MONTHS, todayIso } from '../../ui/format';
+import { fmtMonth, fmtNum, MONTHS, todayIso } from '../../ui/format';
 import { parseNum } from '../EntryDaily';
 
 type Single = 'stockDiff' | 'countPlan' | 'countActual' | 'perIssue' | 'perCount';
@@ -111,7 +111,7 @@ export function PwEntryMonthly({ initialMonth }: { initialMonth?: string }) {
         <label>เดือน <input type="month" aria-label="เดือน" value={month} onChange={(e) => go(e.target.value)} /></label>
         <button type="button" className="secondary sm" aria-label="เดือนถัดไป" onClick={() => go(shiftMonth(1))}>›</button>
         <div className="daystrip" aria-label={`เดือนในปี ${year}`}>
-          {THAI_MONTHS.map((t, i) => {
+          {MONTHS.map((t, i) => {
             const m = `${year}-${String(i + 1).padStart(2, '0')}`;
             return <button key={m} type="button" style={{ minWidth: 44 }} className={recorded.has(m) ? 'has' : ''} aria-current={m === month ? 'date' : undefined} onClick={() => go(m)}>{t}</button>;
           })}

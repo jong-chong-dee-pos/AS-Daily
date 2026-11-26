@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRepo } from '../data/RepoContext';
 import { variance } from '../calc/cost';
 import { COST_CATEGORIES, type CostCategory, type OpsMonth } from '../types';
-import { fmtBaht, fmtMonth, fmtNum, THAI_MONTHS, todayIso } from '../ui/format';
+import { fmtBaht, fmtMonth, fmtNum, MONTHS, todayIso } from '../ui/format';
 import { COST_LABEL } from '../ui/labels';
 import { opsDerived } from '../calc/ops';
 import { parseNum } from './EntryDaily';
@@ -24,6 +24,9 @@ export const OPS_FIELDS: { key: OpsKey; label: string; unit: string; hint?: stri
 const OPS_GROUPS = [...new Set(OPS_FIELDS.map((f) => f.group))];
 type OpsVals = Record<OpsKey, string>;
 const blankOps = (): OpsVals => Object.fromEntries(OPS_FIELDS.map((f) => [f.key, ''])) as OpsVals;
+
+/** Imported figures can carry long binary fractions (26548.430083490875); show them to the satang. */
+const show = (v: number) => String(Math.round(v * 100) / 100);
 
 type Vals = Record<CostCategory, { standard: string; actual: string; note: string }>;
 const blank = (): Vals => Object.fromEntries(COST_CATEGORIES.map((c) => [c, { standard: '', actual: '', note: '' }])) as Vals;
@@ -55,11 +58,11 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
     setBusy(true); setStatus('');
     Promise.all([repo.getCostMonths(month, month), repo.getOpsMonths(month, month)]).then(([[c], [o]]) => {
       if (!live) return;
-      setOps(Object.fromEntries(OPS_FIELDS.map((f) => [f.key, o?.[f.key] == null ? '' : String(o[f.key])])) as OpsVals);
+      setOps(Object.fromEntries(OPS_FIELDS.map((f) => [f.key, o?.[f.key] == null ? '' : show(o[f.key] as number)])) as OpsVals);
       setOpsSaved(!!o);
       const v = blank();
       if (c) for (const k of COST_CATEGORIES) {
-        v[k] = { standard: c.standard[k] == null ? '' : String(c.standard[k]), actual: c.actual[k] == null ? '' : String(c.actual[k]), note: c.note?.[k] ?? '' };
+        v[k] = { standard: c.standard[k] == null ? '' : show(c.standard[k]!), actual: c.actual[k] == null ? '' : show(c.actual[k]!), note: c.note?.[k] ?? '' };
       }
       setVals(v); setBusy(false); setDirty(false);
     });
@@ -102,7 +105,7 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
         <label>เดือน <input id="cost-month" type="month" value={month} onChange={(e) => go(e.target.value)} /></label>
         <button type="button" className="secondary sm" aria-label="เดือนถัดไป" onClick={() => go(shiftMonth(1))}>›</button>
         <div className="daystrip" aria-label={`เดือนในปี ${year}`}>
-          {THAI_MONTHS.map((t, i) => {
+          {MONTHS.map((t, i) => {
             const m = `${year}-${String(i + 1).padStart(2, '0')}`;
             return <button key={m} type="button" style={{ minWidth: 44 }} className={recorded.has(m) ? 'has' : ''} aria-current={m === month ? 'date' : undefined} onClick={() => go(m)}>{t}</button>;
           })}

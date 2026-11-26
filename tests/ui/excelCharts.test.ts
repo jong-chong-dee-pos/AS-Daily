@@ -23,7 +23,7 @@ describe('Excel-style chart series', () => {
   it('% PER months then AVG-26/25/24 like sheet "% Per (Month)_"', () => {
     const s = perMonthSeries(d, 2026);
     expect(s.map((p) => p.name).slice(-3)).toEqual(['AVG-26', 'AVG-25', 'AVG-24']);
-    expect(s[0]).toMatchObject({ name: 'ม.ค.', per: 128, target: 120 });
+    expect(s[0]).toMatchObject({ name: 'Jan', per: 128, target: 120 });
     expect(s[10].per).toBeCloseTo(138.33, 2);
     expect(s[11].per).toBeNull();
     expect(s[12].per as number).toBeCloseTo(129.30, 2);
@@ -49,7 +49,7 @@ describe('Excel-style chart series', () => {
   });
   it('cost series carries standard, actual and variance', () => {
     const c = costSeries(d, 2026, 'electric');
-    expect(c[9]).toMatchObject({ name: 'ต.ค.', standard: 26548.43, actual: 54594.25 });
+    expect(c[9]).toMatchObject({ name: 'Oct', standard: 26548.43, actual: 54594.25 });
     expect(c[9].variance as number).toBeCloseTo(-28045.82, 2);
   });
 });

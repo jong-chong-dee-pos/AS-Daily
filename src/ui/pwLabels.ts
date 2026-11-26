@@ -1,3 +1,4 @@
+import { PAL } from './palette';
 import type { AgeBucket, PlanGroup } from '../types';
 
 export const AGE_LABEL: Record<AgeBucket, string> = { lt2: '< 2 Month', m2to6: '2-6 Month', m6to12: '6-12 Month', gt12: '> 12 Month', noUsage: 'No Usage' };
@@ -12,4 +13,5 @@ export const PLAN_COLOR: Record<PlanGroup, string> = {
   singleLever: '#22b573', flushValve: '#f7d84a', auto: '#ffb020', laser: '#ff7a2f', sensor: '#ef4056',
   skinPack: '#4aa8ff', sparePart: '#3346d3', shower: '#b06ad9', package: '#2fd3c4', manual: '#8a8799',
 };
-export const PW_COLOR = { wip: '#4c6fdc', pur: '#ff8a3d', total: '#8a8799', bar: '#4c6fdc', actual: '#ff8a3d', good: '#22b573', bad: '#ef4056', target: '#ff7a2f', item: '#9b98b4' };
+/** Part Warehouse colours, from the system palette: PUR and the count's actual violet, WIP and the plan soft violet. */
+export const PW_COLOR = { wip: PAL.plan, pur: PAL.actual, total: PAL.ink, bar: PAL.actual, plan: PAL.plan, actual: PAL.actual, good: PAL.good, bad: PAL.bad, target: PAL.target, item: PAL.muted, prev: PAL.prev };
