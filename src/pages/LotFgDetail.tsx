@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useRepo } from '../data/RepoContext';
 import { daysInMonth } from '../calc/period';
-import { lotTotals } from '../calc/lotout';
-import type { Line, LotEntry, MonthlySummary } from '../types';
+import { lotPct, lotTotals } from '../calc/lotout';
+import { targetFor } from '../calc/cost';
+import type { Line, LotEntry, MonthlySummary, Target } from '../types';
 import { fmtDate, fmtMonth, fmtNum, todayIso } from '../ui/format';
 
 const shift = (m: string, n: number) => {
@@ -21,19 +22,24 @@ export function LotFgDetail() {
   const [lot, setLot] = useState<LotEntry[] | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
   const [summary, setSummary] = useState<MonthlySummary | null>(null);
+  const [targets, setTargets] = useState<Target[]>([]);
   useEffect(() => {
     let live = true;
     setLot(null);
     Promise.all([
       repo.getLotEntries(`${month}-01`, `${month}-${String(daysInMonth(month)).padStart(2, '0')}`),
-      repo.listLines(), repo.getMonthlySummaries(month, month),
-    ]).then(([l, ls, s]) => { if (live) { setLot(l); setLines(ls); setSummary(s[0] ?? null); } });
+      repo.listLines(), repo.getMonthlySummaries(month, month), repo.listTargets().catch(() => [] as Target[]),
+    ]).then(([l, ls, s, tg]) => { if (live) { setLot(l); setLines(ls); setSummary(s[0] ?? null); setTargets(tg); } });
     return () => { live = false; };
   }, [repo, month]);
   const rows = useMemo(() => (lot ?? []).flatMap((e) => (e.items ?? []).filter((i) => i.kind === 'fg').map((i) => ({ ...i, date: e.date }))), [lot]);
   const t = lot && lot.length ? lotTotals(lot) : null;
   const sent = t ? t.sent : summary?.lotSent ?? null;
   const fg = t ? t.fg : summary ? summary.lotFg ?? summary.lotOut ?? null : null;
+  // The month's Lot out %: FG lots out of the lots sent, judged against that month's target.
+  const pct = sent !== null && fg !== null ? lotPct(fg, sent) : null;
+  const target = targetFor(targets, month).lotOutTarget;
+  const ok = pct === null ? null : pct <= target;
   const lineName = (id?: string) => lines.find((l) => l.id === id)?.code ?? '—';
   const go = (m: string) => setSp({ m });
 
@@ -51,9 +57,10 @@ export function LotFgDetail() {
       <div className="cards" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
         <div className="card c-lot"><div className="card-head"><span className="label">Lot ส่งตรวจ {fmtMonth(month)}</span></div><div className="value" data-testid="fg-sent">{fmtNum(sent, 0)}</div></div>
         <div className="card c-cost"><div className="card-head"><span className="label">Lot out FG</span></div><div className="value neg" data-testid="fg-count">{fmtNum(fg, 0)}</div>
-          <div className="target">{sent && fg !== null ? `${fmtNum((fg / sent) * 100, 2)}% ของ Lot ส่งตรวจ` : ''}</div></div>
-        <div className="card c-per"><div className="card-head"><span className="label">บันทึกรายละเอียดแล้ว</span></div><div className="value">{rows.length}<span className="hint"> รายการ</span></div>
           <div className="target">{fg !== null && rows.length < fg && t ? `ยังขาดรายละเอียด ${fg - rows.length} รายการ` : ''}</div></div>
+        <div className="card c-per"><div className="card-head"><span className="label">% Lot out</span></div>
+          <div className={`value ${ok === null ? '' : ok ? 'met' : 'neg'}`} data-testid="fg-pct">{pct === null ? '–' : `${fmtNum(pct, 2)}%`}</div>
+          <div className="target">เป้า ≤ {fmtNum(target, 2)}% {ok !== null && <span className={`pill ${ok ? 'ok' : 'no'}`}>{ok ? 'ถึงเป้า' : 'ไม่ถึงเป้า'}</span>}</div></div>
       </div>
       {lot === null && <p className="empty">กำลังโหลด…</p>}
       {lot !== null && (

@@ -29,12 +29,19 @@ describe('Lot out FG', () => {
     expect(screen.queryByText('รอย')).toBeNull();
     expect(screen.getByTestId('fg-count')).toHaveTextContent('2');
     expect(screen.getByText('ยังขาดรายละเอียด 1 รายการ')).toBeInTheDocument();
+    // FG only: 2 / 20, the Patrol lot does not count.
+    expect(screen.getByTestId('fg-pct')).toHaveTextContent('10.00%');
+    expect(screen.getByText('ไม่ถึงเป้า')).toBeInTheDocument();
+    expect(screen.queryByText(/ของ Lot ส่งตรวจ/)).toBeNull();
   });
   it('an imported month shows its Lot out from the summary', async () => {
-    const repo = fakeRepo({ summaries: [{ month: '2026-10', per: 134, lotSent: 630, lotOut: 3 }] });
+    const repo = fakeRepo({ summaries: [{ month: '2026-10', per: 134, lotSent: 630, lotOut: 3 }], targets: [{ month: '2026-10', perTarget: 125, lotOutTarget: 0.6 }] });
     render(<MemoryRouter initialEntries={['/report/lot/fg?m=2026-10']}><RepoContext.Provider value={repo}><LotFgDetail /></RepoContext.Provider></MemoryRouter>);
     await waitFor(() => expect(screen.getByTestId('fg-sent')).toHaveTextContent('630'));
     expect(screen.getByTestId('fg-count')).toHaveTextContent('3');
     expect(screen.getByText(/นำเข้าจาก Excel/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('เป้า ≤ 0.60%')).toBeInTheDocument());
+    expect(screen.getByTestId('fg-pct')).toHaveTextContent('0.48%');
+    expect(screen.getByText('ถึงเป้า')).toBeInTheDocument();
   });
 });
