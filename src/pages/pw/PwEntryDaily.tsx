@@ -22,6 +22,7 @@ export function PwEntryDaily({ initialDate }: { initialDate?: string }) {
   const month = date.slice(0, 7);
   const [plan, setPlan] = useState<PwPlanDay[]>([]);
   const [vals, setVals] = useState<Vals>(blank());
+  const [note, setNote] = useState('');
   const [manpower, setManpower] = useState<number | null>(null);
   const [busy, setBusy] = useState(true);
   const [dirty, setDirty] = useState(false);
@@ -41,6 +42,7 @@ export function PwEntryDaily({ initialDate }: { initialDate?: string }) {
       setPlan(p);
       const d = p.find((x) => x.date === date);
       setVals(Object.fromEntries(PLAN_GROUPS.map((g) => [g, d?.qty[g] == null ? '' : String(d.qty[g])])) as Vals);
+      setNote(d?.note ?? '');
       setDirty(false); setBusy(false);
     }).catch(() => { if (live) { setStatus('โหลดข้อมูลไม่ได้ ลองอีกครั้ง'); setBusy(false); } });
     return () => { live = false; };
@@ -55,8 +57,9 @@ export function PwEntryDaily({ initialDate }: { initialDate?: string }) {
   const save = async () => {
     setBusy(true); setStatus('กำลังบันทึก…');
     try {
-      await repo.savePwPlanDay({ date, qty });
-      setPlan((p) => [...p.filter((x) => x.date !== date), ...(Object.keys(qty).length ? [{ date, qty }] : [])].sort((a, b) => a.date.localeCompare(b.date)));
+      const n = note.trim();
+      await repo.savePwPlanDay({ date, qty, ...(n ? { note: n } : {}) });
+      setPlan((p) => [...p.filter((x) => x.date !== date), ...(Object.keys(qty).length || n ? [{ date, qty, ...(n ? { note: n } : {}) }] : [])].sort((a, b) => a.date.localeCompare(b.date)));
       setStatus(`บันทึกแผนวันที่ ${fmtDate(date)} แล้ว`); setDirty(false);
       if (!pending) setSavedDay(date);
       if (pending) { setDate(pending); setPending(null); }
@@ -107,6 +110,10 @@ export function PwEntryDaily({ initialDate }: { initialDate?: string }) {
               <b className={total > manpower ? 'neg' : ''}>{total > manpower ? `เกิน ${fmtNum(total - manpower, 0)}` : `เหลือ ${fmtNum(manpower - total, 0)}`}</b><small>ชิ้น</small></div>
           )}
         </div>
+        <label className="pw-note"><span>หมายเหตุ</span>
+          <input type="text" aria-label="หมายเหตุแผนประกอบ" maxLength={300} placeholder="ไม่แสดงบนกราฟ แสดงเมื่อเอาเมาส์ชี้วันนั้น" value={note}
+            onChange={(e) => { setNote(e.target.value); setDirty(true); setStatus(''); setSavedDay(null); }} />
+        </label>
       </div>
       {invalid && <p className="error" role="alert">กรอกตัวเลข 0 ขึ้นไป</p>}
       <div className="actions savebar">
@@ -123,7 +130,8 @@ export function PwEntryDaily({ initialDate }: { initialDate?: string }) {
               <tbody>
                 {plan.map((p) => (
                   <tr key={p.date} className={p.date === date ? 'current' : ''}>
-                    <td><button type="button" className="link" onClick={() => go(p.date)}>{fmtDate(p.date)}</button></td>
+                    <td><button type="button" className="link" onClick={() => go(p.date)}>{fmtDate(p.date)}</button>
+                      {p.note && <small className="pw-note-cell" title={p.note}>{p.note}</small>}</td>
                     {PLAN_GROUPS.map((g) => <td key={g} className="num">{p.qty[g] == null ? '' : fmtNum(p.qty[g], 0)}</td>)}
                     <td className="num"><b>{fmtNum(planTotal(p), 0)}</b></td>
                   </tr>

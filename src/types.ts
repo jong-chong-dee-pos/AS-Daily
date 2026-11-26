@@ -192,7 +192,12 @@ export type Buckets = Record<AgeBucket, number | null>;
 export const PLAN_GROUPS = ['singleLever', 'flushValve', 'auto', 'laser', 'sensor', 'skinPack', 'sparePart', 'shower', 'package', 'manual'] as const;
 export type PlanGroup = typeof PLAN_GROUPS[number];
 
+/** A missing part of the month. Qty is against the plan: negative = issued short, positive = issued over. */
 export interface MissingPart { partNo: string; qty: number | null }
+
+/** The topics of the monthly entry page that each take a note (shown when hovering that chart's column). */
+export const PW_NOTE_KEYS = ['pur', 'inh', 'missing', 'stockDiff', 'count', 'perIssue', 'perCount'] as const;
+export type PwNoteKey = typeof PW_NOTE_KEYS[number];
 
 /** Everything Part Warehouse enters once a month (areas/partWarehouse/monthly/YYYY-MM). */
 export interface PwMonth {
@@ -213,10 +218,12 @@ export interface PwMonth {
   /** % Performance of the issuing team and the stock-count team, typed as a percentage. */
   perIssue: number | null;
   perCount: number | null;
+  /** A note per topic, e.g. why a number looks the way it does. Never drawn on the chart, only in its tooltip. */
+  notes?: Partial<Record<PwNoteKey, string>>;
 }
 
 /** One day of the assembly plan (areas/partWarehouse/plan/YYYY-MM holds a month of days). */
-export interface PwPlanDay { date: string; qty: Partial<Record<PlanGroup, number>> }
+export interface PwPlanDay { date: string; qty: Partial<Record<PlanGroup, number>>; note?: string }
 
 /** Targets the admin sets in Part Warehouse settings. */
 export interface PwTargets {

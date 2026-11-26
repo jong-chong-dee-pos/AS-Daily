@@ -1,24 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRepo } from '../../data/RepoContext';
-import { AGE_BUCKETS, type AgeBucket, type Buckets, type PwMonth } from '../../types';
+import { AGE_BUCKETS, PW_NOTE_KEYS, type AgeBucket, type Buckets, type PwMonth, type PwNoteKey } from '../../types';
 import { bucketTotal, emptyBuckets } from '../../calc/pw';
 import { AGE_COLOR, AGE_LABEL } from '../../ui/pwLabels';
 import { fmtMonth, fmtNum, MONTHS, todayIso } from '../../ui/format';
 import { parseNum } from '../EntryDaily';
-import { NumInput, useEnterMovesDown, useUnsavedGuard } from '../../ui/entryKit';
+import { NumInput, parseSigned, useEnterMovesDown, useUnsavedGuard } from '../../ui/entryKit';
 
 type Single = 'stockDiff' | 'countPlan' | 'countActual' | 'perIssue' | 'perCount';
-const SINGLES: { key: Single; label: string; group: string; unit?: string }[] = [
-  { key: 'stockDiff', label: 'Stock Diff (Amt) Pur & Wip', group: 'Stock Diff (Amt)' },
-  { key: 'countPlan', label: 'Plan', group: 'Plan Count', unit: 'รายการ' },
-  { key: 'countActual', label: 'Actual', group: 'Plan Count', unit: 'รายการ' },
-  { key: 'perIssue', label: '% Performance ทีมจ่าย', group: '% Performance', unit: '%' },
-  { key: 'perCount', label: '% Performance ทีมนับสต๊อก', group: '% Performance', unit: '%' },
+const SINGLES: { key: Single; label: string; group: string; unit?: string; note: PwNoteKey }[] = [
+  { key: 'stockDiff', label: 'Stock Diff (Amt) Pur & Wip', group: 'Stock Diff (Amt)', note: 'stockDiff' },
+  { key: 'countPlan', label: 'Plan', group: 'Plan Count', unit: 'รายการ', note: 'count' },
+  { key: 'countActual', label: 'Actual', group: 'Plan Count', unit: 'รายการ', note: 'count' },
+  { key: 'perIssue', label: '% Performance ทีมจ่าย', group: '% Performance', unit: '%', note: 'perIssue' },
+  { key: 'perCount', label: '% Performance ทีมนับสต๊อก', group: '% Performance', unit: '%', note: 'perCount' },
 ];
+/** What each note box is called where a group holds two charts. */
+const NOTE_ARIA: Record<PwNoteKey, string> = { pur: 'Turn Over Purchase Part', inh: 'Turn Over Inhouse', missing: 'Missing Part', stockDiff: 'Stock Diff', count: 'Plan Count', perIssue: '% Performance ทีมจ่าย', perCount: '% Performance ทีมนับสต๊อก' };
+const NOTE_LABEL: Partial<Record<PwNoteKey, string>> = { perIssue: 'ทีมจ่าย', perCount: 'ทีมนับสต๊อก' };
 interface Form {
   pur: Record<AgeBucket, string>; inh: Record<AgeBucket, string>;
   missing: { partNo: string; qty: string }[]; missingCount: number | null;
   single: Record<Single, string>;
+  notes: Record<PwNoteKey, string>;
 }
 const str = (v: number | null | undefined) => (v == null ? '' : String(v));
 const blankBuckets = () => Object.fromEntries(AGE_BUCKETS.map((k) => [k, ''])) as Record<AgeBucket, string>;
@@ -28,9 +32,12 @@ const toForm = (m: PwMonth | undefined): Form => ({
   missing: (m?.missing ?? []).map((r) => ({ partNo: r.partNo, qty: str(r.qty) })),
   missingCount: m?.missingCount ?? null,
   single: Object.fromEntries(SINGLES.map((f) => [f.key, str(m?.[f.key])])) as Record<Single, string>,
+  notes: Object.fromEntries(PW_NOTE_KEYS.map((k) => [k, m?.notes?.[k] ?? ''])) as Record<PwNoteKey, string>,
 });
 const bad = (s: string) => Number.isNaN(parseNum(s));
 const val = (s: string) => { const n = parseNum(s); return n === null || Number.isNaN(n) ? null : n; };
+/** Missing Part Qty against the plan: negative = short, positive = over; blank, 0 or not a whole number is wrong. */
+const qtyBad = (s: string) => { const n = parseSigned(s); return n === null || Number.isNaN(n) || n === 0; };
 
 /** Part Warehouse: everything entered once a month. */
 export function PwEntryMonthly({ initialMonth }: { initialMonth?: string }) {
@@ -66,18 +73,28 @@ export function PwEntryMonthly({ initialMonth }: { initialMonth?: string }) {
   const go = (m: string) => { if (!m || m === month) return; if (dirty) setPending(m); else { setStatus(''); setMonth(m); } };
 
   const rows = form.missing.filter((r) => r.partNo.trim() || r.qty.trim());
-  const missingRowsBad = rows.some((r) => !r.partNo.trim() || !r.qty.trim() || bad(r.qty));
+  const missingRowsBad = rows.some((r) => !r.partNo.trim() || qtyBad(r.qty));
+  const short = rows.filter((r) => !qtyBad(r.qty) && (parseSigned(r.qty) as number) < 0).length;
+  const over = rows.filter((r) => !qtyBad(r.qty) && (parseSigned(r.qty) as number) > 0).length;
   const nos = rows.map((r) => r.partNo.trim().toUpperCase()).filter(Boolean);
   const dupNo = nos.find((p, i) => nos.indexOf(p) !== i);
   const invalid = AGE_BUCKETS.some((k) => bad(form.pur[k]) || bad(form.inh[k])) || SINGLES.some((f) => bad(form.single[f.key])) || missingRowsBad || !!dupNo;
   const buckets = (b: Record<AgeBucket, string>): Buckets => ({ ...emptyBuckets(), ...Object.fromEntries(AGE_BUCKETS.map((k) => [k, val(b[k])])) });
   const record = (): PwMonth => ({
     month, pur: buckets(form.pur), inh: buckets(form.inh),
-    missing: rows.map((r) => ({ partNo: r.partNo.trim(), qty: val(r.qty) })),
+    missing: rows.map((r) => ({ partNo: r.partNo.trim(), qty: parseSigned(r.qty) })),
     // The count imported from the old chart is kept until a list is typed for that month.
     ...(rows.length === 0 && form.missingCount != null ? { missingCount: form.missingCount } : {}),
     ...(Object.fromEntries(SINGLES.map((f) => [f.key, val(form.single[f.key])])) as Record<Single, number | null>),
+    // Only notes with text are kept (Firestore takes no undefined).
+    notes: Object.fromEntries(PW_NOTE_KEYS.map((k) => [k, form.notes[k].trim()]).filter(([, v]) => v)) as PwMonth['notes'],
   });
+  const noteBox = (k: PwNoteKey, label = NOTE_LABEL[k]) => (
+    <label key={`note-${k}`} className="pw-note"><span>หมายเหตุ{label ? ` ${label}` : ''}</span>
+      <input type="text" aria-label={`หมายเหตุ ${NOTE_ARIA[k]}`} maxLength={300} placeholder="ไม่แสดงบนกราฟ แสดงเมื่อเอาเมาส์ชี้เดือนนั้น" value={form.notes[k]}
+        onChange={(e) => { const v = e.target.value; edit((s) => ({ ...s, notes: { ...s.notes, [k]: v } })); }} />
+    </label>
+  );
   const pur = bucketTotal(buckets(form.pur)), wip = bucketTotal(buckets(form.inh));
 
   const save = async () => {
@@ -104,6 +121,7 @@ export function PwEntryMonthly({ initialMonth }: { initialMonth?: string }) {
         ))}
         <div className="ops-field pw-sum"><span>{totalName} (รวม)</span><b data-testid={`sum-${side}`}>{fmtNum(total, 2)}</b></div>
       </div>
+      {noteBox(side)}
     </fieldset>
   );
 
@@ -139,7 +157,7 @@ export function PwEntryMonthly({ initialMonth }: { initialMonth?: string }) {
       </div>
 
       <div className="panel" style={{ maxWidth: 1100 }}>
-        <div className="panel-head"><h2>Missing Part No. &amp; Qty</h2><span className="hint">ระบบนับจำนวนรายการไปแสดงในกราฟ</span></div>
+        <div className="panel-head"><h2>Missing Part No. &amp; Qty</h2><span className="hint">Qty ติดลบ = จ่ายขาดจากแผน, บวก = จ่ายเกินแผน · ระบบนับทุกรายการไปแสดงในกราฟ</span></div>
         {rows.length === 0 && form.missingCount != null && (
           <p className="hint">เดือนนี้มีจำนวนจากรายงานเดิม {form.missingCount} รายการ (ไม่มีรายการ Part No.) ถ้าใส่รายการด้านล่าง ระบบจะนับจากรายการแทน</p>
         )}
@@ -151,7 +169,8 @@ export function PwEntryMonthly({ initialMonth }: { initialMonth?: string }) {
                 <td>{i + 1}</td>
                 <td><input aria-label={`Part No. แถว ${i + 1}`} value={r.partNo} className={(r.qty.trim() && !r.partNo.trim()) || (dupNo && r.partNo.trim().toUpperCase() === dupNo) ? 'invalid' : ''}
                   onChange={(e) => { const v = e.target.value; edit((s) => ({ ...s, missing: s.missing.map((x, j) => (j === i ? { ...x, partNo: v } : x)) })); }} /></td>
-                <td className="num"><NumInput aria-label={`Qty แถว ${i + 1}`} inputMode="numeric" style={{ width: 100 }} value={r.qty} className={bad(r.qty) ? 'invalid' : ''}
+                <td className="num"><NumInput aria-label={`Qty แถว ${i + 1}`} inputMode="text" placeholder="-5 หรือ 5" style={{ width: 110 }} value={r.qty}
+                  className={`${r.partNo.trim() || r.qty.trim() ? (qtyBad(r.qty) ? 'invalid' : '') : ''} ${!qtyBad(r.qty) && (parseSigned(r.qty) as number) < 0 ? 'qty-short' : ''}`}
                   onChange={(e) => { const v = e.target.value; edit((s) => ({ ...s, missing: s.missing.map((x, j) => (j === i ? { ...x, qty: v } : x)) })); }} /></td>
                 <td><button type="button" className="secondary sm" aria-label={`ลบแถว ${i + 1}`} onClick={() => edit((s) => ({ ...s, missing: s.missing.filter((_, j) => j !== i) }))}>ลบ</button></td>
               </tr>
@@ -160,8 +179,9 @@ export function PwEntryMonthly({ initialMonth }: { initialMonth?: string }) {
         </table>
         <div className="actions" style={{ marginTop: 8 }}>
           <button type="button" className="secondary sm" onClick={() => edit((s) => ({ ...s, missing: [...s.missing, { partNo: '', qty: '' }] }))}>+ เพิ่ม Part No.</button>
-          <span className="hint" data-testid="missing-count">นับได้ {rows.length || (form.missingCount ?? 0)} รายการ</span>
+          <span className="hint" data-testid="missing-count">นับได้ {rows.length || (form.missingCount ?? 0)} รายการ{rows.length > 0 && ` (ขาด ${short} · เกิน ${over})`}</span>
         </div>
+        {noteBox('missing')}
       </div>
 
       <div className="panel" style={{ maxWidth: 1100 }}>
@@ -178,11 +198,12 @@ export function PwEntryMonthly({ initialMonth }: { initialMonth?: string }) {
                 </label>
               ))}
             </div>
+            {[...new Set(SINGLES.filter((f) => f.group === g).map((f) => f.note))].map((k) => noteBox(k))}
           </fieldset>
         ))}
       </div>
 
-      {invalid && <p className="error" role="alert">{missingRowsBad ? 'ทุกแถวของ Missing Part ต้องมี Part No. และ Qty เป็นตัวเลข' : dupNo ? `Part No. ${dupNo} ซ้ำ` : 'กรอกตัวเลข 0 ขึ้นไป'}</p>}
+      {invalid && <p className="error" role="alert">{missingRowsBad ? 'ทุกแถวของ Missing Part ต้องมี Part No. และ Qty เป็นจำนวนเต็มที่ไม่ใช่ 0: ใส่จำนวนที่ขาด (ติดลบ) หรือเกิน (บวก)' : dupNo ? `Part No. ${dupNo} ซ้ำ` : 'กรอกตัวเลข 0 ขึ้นไป'}</p>}
       <div className="actions savebar">
         <button type="button" onClick={save} disabled={busy || invalid}>บันทึก</button>
         <span className="status" role="status">{status || (dirty ? 'ยังไม่ได้บันทึก' : '')}</span>
