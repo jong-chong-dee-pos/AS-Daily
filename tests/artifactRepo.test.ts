@@ -59,6 +59,16 @@ describe('artifact repo', () => {
     expect(await r.getLotEntries('2026-11-01', '2026-11-30')).toEqual([{ date: '2026-11-07', sent: 35, patrol: 0, fg: 1, items: [] }]);
   });
 
+  it('keeps a lot day note only when it has text', async () => {
+    const { db } = memDb();
+    const r = makeArtifactRepo(db);
+    await r.saveLotDay({ date: '2026-11-07', sent: 3, patrol: 0, fg: 1, note: ' เครื่องเสีย ' });
+    await r.saveLotDay({ date: '2026-11-08', sent: 3, patrol: 0, fg: 0, note: '  ' });
+    const got = await r.getLotEntries('2026-11-07', '2026-11-08');
+    expect(got[0].note).toBe('เครื่องเสีย');
+    expect('note' in got[1]).toBe(false);
+  });
+
   it('round-trips lot part numbers and absences', async () => {
     const { db } = memDb();
     const r = makeArtifactRepo(db);

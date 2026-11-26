@@ -7,10 +7,11 @@ import { mean } from '../calc/per';
 import { monthlyLot, monthlyPer, monthlySentFg, sumLot } from '../calc/monthly';
 import { lotByWeek, lotPct, lotTotals } from '../calc/lotout';
 import { targetFor } from '../calc/cost';
-import type { CostCategory, LotEntry, Target } from '../types';
+import type { AsmNoteKey, CostCategory, LotEntry, Target } from '../types';
 import { buildCostRows } from '../pages/ReportCost';
 import { fmtNum, MONTHS } from './format';
 import { PAL } from './palette';
+import { NoteDot, NoteLegend, NoteTip, notedNames, type NoteKey } from './chartNotes';
 
 
 export interface Point { name: string; [k: string]: string | number | null }
@@ -18,12 +19,14 @@ interface Series { key: string; name: string; color: string; digits: number }
 
 const yy = (y: number) => String(y).slice(2);
 const short = (m: string) => MONTHS[Number(m.slice(5, 7)) - 1];
+/** A month's note on one Assembly topic, or null; it rides on the point for the tooltip only. */
+const monthNote = (d: ReportData, m: string, k: AsmNoteKey) => d.ops?.find((o) => o.month === m)?.notes?.[k]?.trim() || null;
 
 /** % PER by month, then AVG for this year and the two before (sheet "% Per (Month)_"). */
 export function perMonthSeries(d: ReportData, year: number): Point[] {
   const months = monthsIn({ kind: 'year', year });
   const per = monthlyPer(months, d.per, d.lines, d.summaries);
-  const pts: Point[] = months.map((m, i) => ({ name: short(m), per: per[i], target: targetFor(d.targets, m).perTarget }));
+  const pts: Point[] = months.map((m, i) => ({ name: short(m), per: per[i], target: targetFor(d.targets, m).perTarget, note: monthNote(d, m, 'per') }));
   const prevMonths = monthsIn({ kind: 'year', year: year - 1 });
   const prevAvg = d.prevYear.yearSummary?.per
     ?? mean(monthlyPer(prevMonths, [], d.lines, d.prevYear.summaries).filter((v): v is number => v !== null));
@@ -37,7 +40,7 @@ export function perMonthSeries(d: ReportData, year: number): Point[] {
 export function lotMonthSeries(d: ReportData, year: number): Point[] {
   const months = monthsIn({ kind: 'year', year });
   const t = monthlyLot(months, d.lot, d.summaries);
-  const pts: Point[] = months.map((m, i) => ({ name: short(m), month: m, pct: t[i].pct, target: targetFor(d.targets, m).lotOutTarget }));
+  const pts: Point[] = months.map((m, i) => ({ name: short(m), month: m, pct: t[i].pct, target: targetFor(d.targets, m).lotOutTarget, note: monthNote(d, m, 'lot') }));
   pts.push({ name: String(year), pct: sumLot(t).pct, target: targetFor(d.targets, months[0]).lotOutTarget });
   const y = d.prevYear.yearSummary;
   const prev = y && y.lotSent
@@ -52,7 +55,8 @@ export function lotDailySeries(lot: LotEntry[], month: string, targets: Target[]
   const target = targetFor(targets, month).lotOutTarget;
   return Array.from({ length: daysInMonth(month) }, (_, i) => {
     const date = `${month}-${String(i + 1).padStart(2, '0')}`;
-    return { name: String(i + 1), pct: lotTotals(lot.filter((e) => e.date === date)).pct, target };
+    const day = lot.filter((e) => e.date === date);
+    return { name: String(i + 1), pct: lotTotals(day).pct, target, note: day.map((e) => e.note?.trim()).filter(Boolean).join(' · ') || null };
   });
 }
 
@@ -65,7 +69,7 @@ export function lotWeekSeries(lot: LotEntry[], month: string, targets: Target[])
 /** Standard, Actual and Variance by month for one category (sheets Electric, Labor-OT, ...). */
 export function costSeries(d: ReportData, year: number, cat: CostCategory): Point[] {
   return buildCostRows(d, { kind: 'year', year }).filter((r) => r.cat === cat)
-    .map((r) => ({ name: short(r.month), standard: r.standard, actual: r.actual, variance: r.variance }));
+    .map((r) => ({ name: short(r.month), standard: r.standard, actual: r.actual, variance: r.variance, note: r.note.trim() || null }));
 }
 
 /** Series colours, all taken from the one system palette (see palette.ts). */
@@ -82,15 +86,21 @@ export const XL = { green: C.varUp, cyan: C.lot, red: C.varDown, orange: C.targe
 const AXIS = { fill: '#6f6c8c', fontSize: 12 };
 
 /** "AVG-26" is drawn on two lines so narrow columns never collide. */
-function XTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) {
+/** `every` 2 names every other column (the days of a month) but still draws each column's note dot. */
+function XTick({ x, y, payload, index = 0, noted, every = 1 }: { x?: number; y?: number; payload?: { value: string }; index?: number; noted?: Set<string>; every?: number }) {
   if (x === undefined || y === undefined || !payload) return null;
   const v = String(payload.value);
+  const dot = noted?.has(v);
+  if (index % every) return dot ? <NoteDot x={x} y={y} dy={22} /> : null;
   // Year columns (2026) read as two short lines: ปี / 26.
   const [a, b] = /^\d{4}$/.test(v) ? ['ปี', v.slice(2)] : v.split('-');
   return (
-    <text x={x} y={y + 12} textAnchor="middle" fontSize={12} fill={b ? '#4b4870' : AXIS.fill} fontWeight={b ? 600 : 400}>
-      <tspan x={x}>{a}</tspan>{b && <tspan x={x} dy={14}>{b}</tspan>}
-    </text>
+    <g>
+      <text x={x} y={y + 12} textAnchor="middle" fontSize={12} fill={b ? '#4b4870' : AXIS.fill} fontWeight={b ? 600 : 400}>
+        <tspan x={x}>{a}</tspan>{b && <tspan x={x} dy={14}>{b}</tspan>}
+      </text>
+      {dot && <NoteDot x={x} y={y} dy={b ? 36 : 22} />}
+    </g>
   );
 }
 
@@ -117,7 +127,7 @@ const range = (vals: (number | null | string)[], digits: number) => {
   return lo === hi ? fmtNum(lo, digits) : `${fmtNum(lo, digits)}–${fmtNum(hi, digits)}`;
 };
 
-export function ExcelChart({ title, sub, data, bars, line, height = 300, unit = '', soft, judge, onPick }: {
+export function ExcelChart({ title, sub, data, bars, line, height = 300, unit = '', soft, judge, onPick, notes = [] }: {
   title: string; sub?: string; data: Point[]; bars: Series[]; line?: Series;
   height?: number; unit?: string;
   /** Makes a column clickable; return false for columns that open nothing (a pointer shows only on the others). */
@@ -126,7 +136,10 @@ export function ExcelChart({ title, sub, data, bars, line, height = 300, unit = 
   judge?: (p: Point) => boolean | null;
   /** Lighter bar colour for summary columns such as AVG-25 or the year totals. */
   soft?: { color: string; from: number };
+  /** Point fields holding a note: shown in the tooltip only, with a dot under the column's name. */
+  notes?: NoteKey[];
 }) {
+  const noted = notedNames(data, notes);
   const compact = bars.length > 1;
   const [hover, setHover] = useState<number | null>(null);
   const canPick = (i: number | null | undefined) => onPick && i != null && data[i] ? onPick.can(data[i]) : false;
@@ -146,6 +159,7 @@ export function ExcelChart({ title, sub, data, bars, line, height = 300, unit = 
         <span className="chart-title">{title}{sub && <small>{sub}</small>}</span>
         <span className="chart-legend">
           {legend.map((l) => <span key={l.name}><i className={l.line ? 'ln' : ''} style={l.line ? { borderTopColor: l.color } : { background: l.color }} />{l.name}</span>)}
+          <NoteLegend show={noted.size > 0} />
         </span>
       </figcaption>
       <ResponsiveContainer width="100%" height={height}>
@@ -157,13 +171,13 @@ export function ExcelChart({ title, sub, data, bars, line, height = 300, unit = 
             onClick: (e: { activeTooltipIndex?: number } | null) => { const i = e?.activeTooltipIndex; if (canPick(i)) onPick.go(data[i as number]); },
           } : {})}>
           <CartesianGrid stroke="#eeedf6" strokeDasharray="4 4" vertical={false} />
-          <XAxis dataKey="name" tick={<XTick />} height={40} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={narrow ? 'preserveStartEnd' : dense ? 1 : 0} minTickGap={narrow ? 6 : 5} />
+          <XAxis dataKey="name" tick={<XTick noted={noted} every={!narrow && dense ? 2 : 1} />} height={noted.size ? 48 : 40} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={narrow ? 'preserveStartEnd' : 0} minTickGap={narrow ? 6 : 5} />
           <YAxis tick={AXIS} axisLine={false} tickLine={false} width={compact ? 52 : 40}
             domain={compact ? [(lo: number) => (lo < 0 ? lo * 2.2 : 0), 'auto'] : [0, 'auto']}
             tickFormatter={(v: number) => (compact ? `${fmtNum(v / 1000, 0)}k` : fmtNum(v, bars[0].digits > 0 && Math.abs(v) < 10 ? 1 : 0))} />
           <Tooltip cursor={{ fill: canPick(hover) ? 'rgba(108,92,231,.14)' : 'rgba(108,92,231,.06)' }}
-            formatter={(v: number, n: string) => [`${fmtNum(v, [...bars, ...(line ? [line] : [])].find((s) => s.name === n)?.digits ?? 0)}${unit}`, n]}
-            labelFormatter={(l: string, ps) => (onPick && ps?.[0] && onPick.can(ps[0].payload as Point) ? `${l} · กดเพื่อดูรายละเอียด` : l)} />
+            content={<NoteTip keys={notes} fmt={(v, n) => `${fmtNum(v, [...bars, ...(line ? [line] : [])].find((s) => s.name === n)?.digits ?? 0)}${unit}`}
+              title={(l, p) => (onPick && onPick.can(p as Point) ? `${l} · กดเพื่อดูรายละเอียด` : l)} />} />
           {compact && <ReferenceLine y={0} stroke="#cfcde0" />}
           {bars.map((b) => (
             <Bar key={b.key} dataKey={b.key} name={b.name} fill={b.color} radius={[6, 6, 6, 6]} maxBarSize={dense ? 20 : compact ? 30 : 38} isAnimationActive={false}>
@@ -196,7 +210,7 @@ const avg = (pts: Point[], k: string, digits: number, unit: string) => {
 };
 
 export const PerMonthChart = ({ d, year, height }: { d: ReportData; year: number; height?: number }) => (
-  <ExcelChart title={`% PER รายเดือน ${year}`} data={perMonthSeries(d, year)} unit="%" height={height} soft={{ color: C.perSoft, from: 12 }}
+  <ExcelChart title={`% PER รายเดือน ${year}`} data={perMonthSeries(d, year)} unit="%" height={height} soft={{ color: C.perSoft, from: 12 }} notes={[{ key: 'note' }]}
     judge={(p) => (typeof p.per === 'number' && typeof p.target === 'number' ? p.per >= p.target : null)}
     bars={[{ key: 'per', name: '% PER', color: C.per, digits: 0 }]}
     line={{ key: 'target', name: d.labels?.per ?? 'เป้า', color: C.target, digits: 0 }} />
@@ -211,7 +225,7 @@ const lotOk = (p: Point) => (typeof p.pct === 'number' && typeof p.target === 'n
 export const LotMonthChart = ({ d, year, height, onPick }: { d: ReportData; year: number; height?: number; onPick?: (month: string) => void }) => (
   <ExcelChart title={`Lot out FG % รายเดือน ${year}`} sub={onPick ? 'กดที่แท่งเพื่อดูรายละเอียด Lot out FG ของเดือนนั้น' : undefined}
     onPick={onPick && { can: (p) => typeof p.month === 'string' && typeof p.pct === 'number', go: (p) => onPick(String(p.month)) }}
-    data={lotMonthSeries(d, year)} unit="%" height={height} soft={{ color: C.lotSoft, from: 12 }}
+    data={lotMonthSeries(d, year)} unit="%" height={height} soft={{ color: C.lotSoft, from: 12 }} notes={[{ key: 'note' }]}
     judge={lotOk}
     bars={[{ key: 'pct', name: 'Lot out FG %', color: C.lot, digits: 2 }]}
     line={{ key: 'target', name: `${d.labels?.lot ?? 'เป้า'} ≤`, color: C.targetLow, digits: 2 }} />
@@ -220,7 +234,7 @@ export const LotMonthChart = ({ d, year, height, onPick }: { d: ReportData; year
 export const LotDailyChart = ({ lot, month, targets, label }: { lot: LotEntry[]; month: string; targets: Target[]; label: string }) => {
   const data = lotDailySeries(lot, month, targets);
   return (
-    <ExcelChart title={`Lot out FG % รายวัน ${label}`} sub={avg(data, 'pct', 2, '%')} data={data} unit="%" judge={lotOk}
+    <ExcelChart title={`Lot out FG % รายวัน ${label}`} sub={avg(data, 'pct', 2, '%')} data={data} unit="%" judge={lotOk} notes={[{ key: 'note' }]}
       bars={[{ key: 'pct', name: 'Lot out FG %', color: C.lotDay, digits: 2 }]}
       line={{ key: 'target', name: 'เป้า ≤', color: C.targetLow, digits: 2 }} />
   );
@@ -233,7 +247,7 @@ export const LotWeekChart = ({ lot, month, targets, label }: { lot: LotEntry[]; 
 );
 
 export const CostChart = ({ d, year, cat, label, height = 340 }: { d: ReportData; year: number; cat: CostCategory; label: string; height?: number }) => (
-  <ExcelChart title={`${label} ${year}`} sub="ตัวเลขบนแท่งเป็นพันบาท (k)" data={costSeries(d, year, cat)} height={height}
+  <ExcelChart title={`${label} ${year}`} sub="ตัวเลขบนแท่งเป็นพันบาท (k)" data={costSeries(d, year, cat)} height={height} notes={[{ key: 'note' }]}
     bars={[
       { key: 'standard', name: 'Standard', color: C.std, digits: 0 },
       { key: 'actual', name: 'Actual', color: C.act, digits: 0 },
@@ -266,7 +280,10 @@ export function SentFgChart({ d, year, onPick, height = 380 }: { d: ReportData; 
     name: short(r.month), month: r.month, sent: r.sent, fg: r.fg,
     pct: r.fg !== null && r.sent ? (r.fg / r.sent) * 100 : null,
     target: targetFor(d.targets, r.month).lotOutTarget,
+    note: monthNote(d, r.month, 'lot'),
   }));
+  const noteKeys = [{ key: 'note' }];
+  const noted = notedNames(data, noteKeys);
   const fgMax = Math.max(1, ...rows.map((r) => r.fg ?? 0));
   const pctMax = Math.max(...data.map((p) => Math.max(p.pct ?? 0, p.target)));
   const pick = (i: number | undefined) => { if (i !== undefined && data[i]) onPick(data[i].month); };
@@ -280,20 +297,21 @@ export function SentFgChart({ d, year, onPick, height = 380 }: { d: ReportData; 
           <span><i style={{ background: C.varDown }} />Lot out FG (ตัวเลขในแท่ง)</span>
           <span><i style={{ background: C.act }} />Lot out FG % (แกนขวา)</span>
           <span><i className="ln" style={{ borderTopColor: C.target }} />{label} ≤ {range(data.map((p) => p.target), 2)}%</span>
+          <NoteLegend show={noted.size > 0} />
         </span>
       </figcaption>
       <ResponsiveContainer width="100%" height={height}>
         <ComposedChart data={data} margin={{ top: 28, right: 4, left: 0, bottom: 0 }} barGap={3} barCategoryGap="22%"
           onClick={(e: { activeTooltipIndex?: number } | null) => pick(e?.activeTooltipIndex)}>
           <CartesianGrid stroke="#eeedf6" strokeDasharray="4 4" vertical={false} />
-          <XAxis dataKey="name" tick={<XTick />} height={40} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={narrow ? 'preserveStartEnd' : 0} minTickGap={6} />
+          <XAxis dataKey="name" tick={<XTick noted={noted} />} height={noted.size ? 48 : 40} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={narrow ? 'preserveStartEnd' : 0} minTickGap={6} />
           <YAxis yAxisId="l" tick={AXIS} axisLine={false} tickLine={false} width={44} />
           <YAxis yAxisId="r" orientation="right" tick={{ ...AXIS, fill: C.act }} axisLine={false} tickLine={false} width={44}
             domain={[0, Math.ceil(pctMax * 1.5 * 10) / 10]} tickFormatter={(v: number) => `${fmtNum(v, 1)}%`} />
           {/* FG counts are tiny next to hundreds of lots: own hidden scale, kept low so the % line stays clear. */}
           <YAxis yAxisId="f" hide domain={[0, fgMax * 5.5]} />
           <Tooltip cursor={{ fill: 'rgba(108,92,231,.08)' }}
-            formatter={(v: number, n: string) => [n.includes('%') || n.startsWith(label) ? `${fmtNum(v, 2)}%` : fmtNum(v, 0), n]} />
+            content={<NoteTip keys={noteKeys} fmt={(v, n) => (n.includes('%') || n.startsWith(label) ? `${fmtNum(v, 2)}%` : fmtNum(v, 0))} />} />
           <Bar yAxisId="l" dataKey="sent" name="Lot ส่งตรวจ" fill={C.std} fillOpacity={0.85} radius={[6, 6, 6, 6]} maxBarSize={30} isAnimationActive={false} onClick={(_: unknown, i: number) => pick(i)}>
             {!narrow && <LabelList dataKey="sent" content={(p) => <BarValue {...(p as LabelProps)} fmt={(v) => fmtNum(v, 0)} vertical={false} color="#2a2750" />} />}
           </Bar>

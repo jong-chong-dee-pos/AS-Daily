@@ -10,23 +10,25 @@ import type { OtdMonth, OtdRow } from '../types';
 import { fmtNum, MONTHS } from './format';
 import { useNarrow } from './useNarrow';
 import { PAL } from './palette';
+import { NoteDot, NoteLegend, NoteTip, notedNames, type NoteKey } from './chartNotes';
 
 export interface OpsPoint { name: string; [k: string]: string | number | null }
 interface Series { key: string; name: string; color: string; digits: number }
 
 const AXIS = { fill: '#6f6c8c', fontSize: 12 };
 /** "Dec-24" (a previous December) is drawn on two lines so it never collides with its neighbour. */
-function XTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) {
+function XTick({ x, y, payload, noted }: { x?: number; y?: number; payload?: { value: string }; noted?: Set<string> }) {
   if (x === undefined || y === undefined || !payload) return null;
   const v = String(payload.value);
   const m = /^(.+)-(\d{2})$/.exec(v);
   const sp = v.indexOf(' ');
   const [a, b] = m ? [m[1], m[2]] : sp > 0 ? [v.slice(0, sp), v.slice(sp + 1)] : [v, ''];
-  return (
+  const t = (
     <text x={x} y={y + 12} textAnchor="middle" fontSize={12} fill={m ? '#4b4870' : AXIS.fill} fontWeight={m ? 600 : 400}>
       <tspan x={x}>{a}</tspan>{b && <tspan x={x} dy={14}>{b}</tspan>}
     </text>
   );
+  return noted?.has(v) ? <g>{t}<NoteDot x={x} y={y} dy={b ? 36 : 22} /></g> : t;
 }
 const short = (m: string) => MONTHS[Number(m.slice(5, 7)) - 1];
 export const OTD_COLORS = { good: PAL.good, warn: PAL.warn, bad: PAL.bad, none: PAL.none } as const;
@@ -45,6 +47,9 @@ export function opsSeries(d: ReportData, year: number): OpsPoint[] {
       // The production line of each "per pcs" card shows only months that have figures for that card.
       prodCost: o && (o.processCost != null || o.prodForCost != null) ? costPieces(o) : null,
       prodHead: o && (o.headcount != null || o.expense != null || o.prodForHead != null) ? headPieces(o) : null,
+      // Notes ride along for the tooltips only.
+      noteProd: o?.notes?.prod?.trim() || null, noteMat: o?.notes?.mat?.trim() || null,
+      noteProcess: o?.notes?.process?.trim() || null, noteHead: o?.notes?.head?.trim() || null,
     };
   });
 }
@@ -57,7 +62,8 @@ export function otdMonthSeries(d: ReportData, year: number): OpsPoint[] {
   const pct = (m: string) => d.otd?.find((x) => x.month === m)?.pct ?? null;
   const decs = [year - 2, year - 1].map((y) => `${y}-12`).filter((m) => pct(m) !== null)
     .map((m) => ({ name: `Dec-${m.slice(2, 4)}`, pct: pct(m) }));
-  return [...decs, ...monthsIn({ kind: 'year', year }).map((m) => ({ name: short(m), pct: pct(m) }))]
+  const note = (m: string) => d.ops?.find((o) => o.month === m)?.notes?.otd?.trim() || null;
+  return [...decs, ...monthsIn({ kind: 'year', year }).map((m) => ({ name: short(m), pct: pct(m), note: note(m) }))]
     .map((p) => ({ ...p, pct: p.pct === null ? null : Math.round(p.pct * 1000) / 10 }));
 }
 
@@ -76,10 +82,13 @@ const big = (v: number, digits: number) => (Math.abs(v) >= 10000 ? `${fmtNum(v /
  * Bars by month, optionally with a line on its own right-hand axis (production volume),
  * and an optional target line. `colorOf` colours single bars (e.g. %OTD bands).
  */
-export function MonthChart({ title, sub, data, bars, line, height = 300, unit = '', target, colorOf, legend }: {
+export function MonthChart({ title, sub, data, bars, line, height = 300, unit = '', target, colorOf, legend, notes = [] }: {
   title: string; sub?: string; data: OpsPoint[]; bars: Series[]; line?: Series; height?: number; unit?: string;
   target?: { y: number; label: string }; colorOf?: (v: number | null) => string; legend?: { name: string; color: string }[];
+  /** Point fields that hold a note: a dot under the month, the text in the tooltip. */
+  notes?: NoteKey[];
 }) {
+  const noted = notedNames(data, notes);
   const hasData = data.some((p) => bars.some((b) => typeof p[b.key] === 'number'));
   // On a phone 12+ months don't fit side by side: label every other month and leave
   // the values to the tooltip (tap a bar).
@@ -96,19 +105,20 @@ export function MonthChart({ title, sub, data, bars, line, height = 300, unit = 
         <span className="chart-legend">
           {items.map((l) => <span key={l.name}><i style={{ background: l.color }} />{l.name}</span>)}
           {target && <span><i className="ln" style={{ borderTopColor: PAL.target }} />{target.label}</span>}
+          <NoteLegend show={noted.size > 0} />
         </span>
       </figcaption>
       {!hasData ? <p className="empty" style={{ height: height - 60 }}>ยังไม่มีข้อมูลของปีนี้</p> : (
         <ResponsiveContainer width="100%" height={height}>
           <ComposedChart data={data} margin={{ top: bars.length > 1 && !crowded ? 66 : 28, right: line ? 4 : 12, left: 0, bottom: 0 }} barGap={3} barCategoryGap={bars.length > 1 ? '18%' : '28%'}>
             <CartesianGrid stroke="#eeedf6" strokeDasharray="4 4" vertical={false} />
-            <XAxis dataKey="name" tick={<XTick />} height={data.some((p) => /-\d{2}$| /.test(String(p.name))) ? 40 : 30} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={crowded ? 'preserveStartEnd' : 0} minTickGap={6} />
+            <XAxis dataKey="name" tick={<XTick noted={noted} />} height={(data.some((p) => /-\d{2}$| /.test(String(p.name))) ? 40 : 30) + (noted.size ? 8 : 0)} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={crowded ? 'preserveStartEnd' : 0} minTickGap={6} />
             <YAxis yAxisId="l" tick={AXIS} axisLine={false} tickLine={false} width={48} domain={[0, 'auto']}
               tickFormatter={(v: number) => big(v, bars[0].digits > 0 && v < 10 ? 1 : 0)} />
             {line && <YAxis yAxisId="r" orientation="right" tick={{ ...AXIS, fill: line.color }} axisLine={false} tickLine={false} width={48}
               domain={[0, 'auto']} tickFormatter={(v: number) => big(v, 0)} />}
             <Tooltip cursor={{ fill: 'rgba(108,92,231,.06)' }}
-              formatter={(v: number, n: string) => [`${fmtNum(v, [...bars, ...(line ? [line] : [])].find((s) => s.name === n)?.digits ?? 0)}${unit}`, n]} />
+              content={<NoteTip keys={notes} fmt={(v, n) => `${fmtNum(v, [...bars, ...(line ? [line] : [])].find((s) => s.name === n)?.digits ?? 0)}${unit}`} />} />
             {target && <ReferenceLine yAxisId="l" y={target.y} stroke={PAL.target} strokeWidth={2} strokeDasharray="6 4" />}
             {bars.map((b) => (
               <Bar key={b.key} yAxisId="l" dataKey={b.key} name={b.name} fill={b.color} radius={[6, 6, 0, 0]} maxBarSize={bars.length > 1 ? 26 : 40} isAnimationActive={false}>
@@ -134,13 +144,17 @@ interface Strip { kind: 'line' | 'bar'; key: string; name: string; color: string
  * One card laid out like the old "Process Cost per pcs" sheet: a production line on top,
  * then the bar charts that are computed from it, all sharing the same months.
  */
-export function StackCard({ title, sub, data, strips }: { title: string; sub?: string; data: OpsPoint[]; strips: Strip[] }) {
+export function StackCard({ title, sub, data, strips, notes = [] }: { title: string; sub?: string; data: OpsPoint[]; strips: Strip[]; notes?: NoteKey[] }) {
   const crowded = useNarrow() && data.length > 6;
+  const noted = notedNames(data, notes);
   const hasData = data.some((p) => strips.some((st) => typeof p[st.key] === 'number'));
   return (
     <figure className="chart wide stack">
-      <figcaption><span className="chart-title">{title}{sub && <small>{sub}</small>}</span></figcaption>
-      {!hasData ? <p className="empty">ยังไม่มีข้อมูลของปีนี้</p> : strips.map((st) => {
+      <figcaption>
+        <span className="chart-title">{title}{sub && <small>{sub}</small>}</span>
+        {noted.size > 0 && <span className="chart-legend"><NoteLegend show /></span>}
+      </figcaption>
+      {!hasData ? <p className="empty">ยังไม่มีข้อมูลของปีนี้</p> : strips.map((st, si) => {
         const vals = data.map((p) => p[st.key]).filter((v): v is number => typeof v === 'number');
         const text = (v: number) => (st.kind === 'line' ? fmtNum(v, st.digits) : big(v, st.digits));
         return (
@@ -149,13 +163,14 @@ export function StackCard({ title, sub, data, strips }: { title: string; sub?: s
             <ResponsiveContainer width="100%" height={st.height}>
               <ComposedChart data={data} syncId={title} margin={{ top: 24, right: 16, left: 0, bottom: 0 }} barCategoryGap="34%">
                 <CartesianGrid stroke="#eeedf6" strokeDasharray="4 4" vertical={false} />
-                <XAxis dataKey="name" tick={<XTick />} height={26} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={crowded ? 'preserveStartEnd' : 0} minTickGap={6} />
+                {/* The note dot sits under the first strip's months only. */}
+                <XAxis dataKey="name" tick={<XTick noted={si === 0 ? noted : undefined} />} height={si === 0 && noted.size ? 34 : 26} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={crowded ? 'preserveStartEnd' : 0} minTickGap={6} />
                 {st.kind === 'line'
                   ? <YAxis tick={false} axisLine={false} tickLine={false} width={56}
                       domain={vals.length ? [Math.min(...vals) * 0.85, Math.max(...vals) * 1.05] : [0, 'auto']} />
                   : <YAxis tick={AXIS} axisLine={false} tickLine={false} width={56} domain={[0, 'auto']}
                       tickFormatter={(v: number) => big(v, st.digits > 0 && v < 10 ? 1 : 0)} />}
-                <Tooltip cursor={{ fill: 'rgba(108,92,231,.06)' }} formatter={(v: number) => [fmtNum(v, st.digits), st.name]} />
+                <Tooltip cursor={{ fill: 'rgba(108,92,231,.06)' }} content={<NoteTip keys={notes} fmt={(v) => fmtNum(v, st.digits)} />} />
                 {/* An empty bar series puts the line's points in the middle of each month, over the bars below. */}
                 {st.kind === 'line' && <Bar dataKey="_" legendType="none" isAnimationActive={false} />}
                 {st.kind === 'line'
@@ -180,15 +195,15 @@ export function OpsCharts({ d, year }: { d: ReportData; year: number }) {
   return (
     <div className="charts">
       <MonthChart title={`Assembly Production Volume ${year}`} sub="ชิ้น" data={s} height={320}
-        bars={[{ key: 'prodPlan', name: 'PLAN (PN)', color: PAL.plan, digits: 0 }, { key: 'prodActual', name: 'ACTUAL (AS)', color: PAL.actual, digits: 0 }]} />
+        bars={[{ key: 'prodPlan', name: 'PLAN (PN)', color: PAL.plan, digits: 0 }, { key: 'prodActual', name: 'ACTUAL (AS)', color: PAL.actual, digits: 0 }]} notes={[{ key: 'noteProd' }]} />
       <MonthChart title={`Material cost Variance ${year}`} sub="Standard เทียบ Actual" data={s} height={320}
-        bars={[{ key: 'matStd', name: 'Standard', color: PAL.plan, digits: 2 }, { key: 'matAct', name: 'Actual', color: PAL.actual, digits: 2 }]} />
-      <StackCard title={`Process Cost per pcs ${year}`} sub="Process THB/Pcs. = Actual Process Cost ÷ Production" data={s} strips={[
+        bars={[{ key: 'matStd', name: 'Standard', color: PAL.plan, digits: 2 }, { key: 'matAct', name: 'Actual', color: PAL.actual, digits: 2 }]} notes={[{ key: 'noteMat' }]} />
+      <StackCard title={`Process Cost per pcs ${year}`} sub="Process THB/Pcs. = Actual Process Cost ÷ Production" data={s} notes={[{ key: 'noteProcess' }]} strips={[
         { kind: 'line', key: 'prodCost', name: 'Production', color: PAL.actual, digits: 0, height: 120 },
         { kind: 'bar', key: 'processPerPcs', name: 'Process THB/Pcs.', color: PAL.actual, digits: 2, height: 200 },
         { kind: 'bar', key: 'processCost', name: 'Actual Process Cost (THB)', color: PAL.actual, digits: 0, height: 260 },
       ]} />
-      <StackCard title={`Pcs./head และ Expense/Pcs. ${year}`} sub="Pcs./head = Production ÷ จำนวนคน · Expense/Pcs. = Expense ÷ Production" data={s} strips={[
+      <StackCard title={`Pcs./head และ Expense/Pcs. ${year}`} sub="Pcs./head = Production ÷ จำนวนคน · Expense/Pcs. = Expense ÷ Production" data={s} notes={[{ key: 'noteHead' }]} strips={[
         { kind: 'line', key: 'prodHead', name: 'Production', color: PAL.actual, digits: 0, height: 120 },
         { kind: 'bar', key: 'pcsPerHead', name: 'Pcs./head', color: PAL.actual, digits: 0, height: 230 },
         { kind: 'bar', key: 'expensePerPcs', name: 'Expense/Pcs.', color: PAL.actual, digits: 1, height: 230 },
@@ -236,12 +251,12 @@ export function OtdSection({ d, year, month }: { d: ReportData; year: number; mo
   );
   if (!rows.length) {
     return hasYear
-      ? <div className="charts"><MonthChart title={`%OTD Monthly FG 81 ${year}`} sub="เป้า 80%" data={monthly} unit="%" height={320} colorOf={band} legend={legend} target={target} bars={pctBar} />{missing}</div>
+      ? <div className="charts"><MonthChart title={`%OTD Monthly FG 81 ${year}`} sub="เป้า 80%" data={monthly} unit="%" height={320} colorOf={band} legend={legend} target={target} bars={pctBar} notes={[{ key: 'note' }]} />{missing}</div>
       : <div className="charts single">{missing}</div>;
   }
   return (
     <div className="charts">
-      <MonthChart title={`%OTD Monthly FG 81 ${year}`} sub="เป้า 80%" data={monthly} unit="%" height={320} colorOf={band} legend={legend} target={target} bars={pctBar} />
+      <MonthChart title={`%OTD Monthly FG 81 ${year}`} sub="เป้า 80%" data={monthly} unit="%" height={320} colorOf={band} legend={legend} target={target} bars={pctBar} notes={[{ key: 'note' }]} />
       <MonthChart title="%OTD FG 81 By Week" sub={monthName} data={weekly} unit="%" height={320} colorOf={band} legend={legend} target={target} bars={pctBar} />
       <GroupChart sub={`ทั้งเดือน · ${monthName}`} data={otdGroupSeries(month)} legend={legend} />
       <OtdTable rows={rows} />

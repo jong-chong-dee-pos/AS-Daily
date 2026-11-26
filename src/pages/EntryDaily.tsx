@@ -38,6 +38,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
   const [rows, setRows] = useState<Record<string, Row>>({});
   const [lot, setLot] = useState({ sent: '', patrol: '', fg: '' });
   const [items, setItems] = useState<LotItem[]>([]);
+  const [lotNote, setLotNote] = useState('');
   const [absences, setAbsences] = useState<(Absence & { key: string })[]>([]);
   const [recorded, setRecorded] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState('');
@@ -66,6 +67,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
     })));
     const le = lots[0];
     setLot(le ? { sent: String(le.sent), patrol: String(le.patrol), fg: String(le.fg) } : { sent: '', patrol: '', fg: '' });
+    setLotNote(le?.note ?? '');
     setItems(le?.items ?? []);
     setAbsences((abs[0]?.list ?? []).map((a) => ({ ...normalizeAbsence(a), key: newKey() })));
     setDirty(false); setBusy(false);
@@ -96,7 +98,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
   const sent = parseNum(lot.sent), patrol = parseNum(lot.patrol), fg = parseNum(lot.fg);
   const lotOverflow = !lotInvalid && (patrol ?? 0) + (fg ?? 0) > (sent ?? 0) && (patrol ?? 0) + (fg ?? 0) > 0;
   const lotOutCount = (patrol ?? 0) + (fg ?? 0);
-  const lotBlank = sent === null && patrol === null && fg === null && items.length === 0;
+  const lotBlank = sent === null && patrol === null && fg === null && items.length === 0 && !lotNote.trim();
   const absInvalid = absences.some((a) => !a.workerId);
   const absOtherBlank = absences.some((a) => a.reason === 'other' && !a.note.trim());
   const canSave = !busy && !perInvalid && !noteWithoutPer.length && !lotInvalid && !lotOverflow && !absInvalid && !absOtherBlank && !uploading;
@@ -123,7 +125,7 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
       }));
       const cleanItems = items.map((i) => ({ ...i, partNo: i.partNo.trim(), product: (i.product ?? '').trim(), note: i.note.trim() }));
       if (lotBlank) await repo.deleteLotDay(date);
-      else await repo.saveLotDay({ date, sent: sent ?? 0, patrol: patrol ?? 0, fg: fg ?? 0, items: cleanItems });
+      else await repo.saveLotDay({ date, sent: sent ?? 0, patrol: patrol ?? 0, fg: fg ?? 0, items: cleanItems, ...(lotNote.trim() ? { note: lotNote.trim() } : {}) });
       await repo.saveAbsenceDay(date, absences.map(({ workerId, reason, note }) => ({ workerId, reason, note: note.trim() })));
       setDirty(false);
       setStatus(`บันทึกข้อมูลวันที่ ${fmtDate(date)} แล้ว`);
@@ -267,6 +269,10 @@ export function EntryDaily({ initialDate }: { initialDate?: string }) {
             </div>
             {lotInvalid && <p className="error" role="alert">กรอกตัวเลข 0 ขึ้นไป</p>}
             {lotOverflow && <p className="error" role="alert">Lot out มากกว่า Lot ส่งตรวจ</p>}
+            <label className="pw-note"><span>หมายเหตุ</span>
+              <input type="text" aria-label="หมายเหตุ Lot out" maxLength={300} placeholder="ไม่แสดงบนกราฟ แสดงเมื่อเอาเมาส์ชี้วันนั้นในกราฟ Lot out FG %"
+                value={lotNote} onChange={(e) => { setLotNote(e.target.value); touch(); }} />
+            </label>
 
             <div className="panel-head" style={{ marginTop: 12 }}>
               <h3>รายละเอียด Lot out</h3><span className="hint">U-Line, Product, Part No., ปัญหา และรูปประกอบ</span><span className="spacer" />

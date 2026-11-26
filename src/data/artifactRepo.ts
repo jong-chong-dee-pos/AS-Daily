@@ -79,12 +79,13 @@ export function makeArtifactRepo(db: ArtifactDb, uploadImage?: (f: Blob) => Prom
 
     async getLotEntries(from: string, to: string): Promise<LotEntry[]> {
       const docs = await Promise.all(monthKeys(from, to).map((m) => read<LotMonthDoc>(`lotMonth/${m}`)));
-      return docs.flatMap((d) => Object.entries(d.days ?? {}).map(([date, v]) => ({ date, sent: v.sent, patrol: v.patrol, fg: v.fg, items: v.items ?? [] })))
+      return docs.flatMap((d) => Object.entries(d.days ?? {}).map(([date, v]) => ({ date, sent: v.sent, patrol: v.patrol, fg: v.fg, items: v.items ?? [], ...(v.note ? { note: v.note } : {}) })))
         .filter((e) => e.date >= from && e.date <= to).sort((a, b) => a.date.localeCompare(b.date));
     },
     async saveLotDay(e: LotEntry) {
       const path = `lotMonth/${e.date.slice(0, 7)}`;
-      const days = { ...(await read<LotMonthDoc>(path)).days, [e.date]: { sent: e.sent, patrol: e.patrol, fg: e.fg, items: e.items ?? [] } };
+      const note = e.note?.trim();
+      const days = { ...(await read<LotMonthDoc>(path)).days, [e.date]: { sent: e.sent, patrol: e.patrol, fg: e.fg, items: e.items ?? [], ...(note ? { note } : {}) } };
       await db.doc(path).set({ days, ...stamp() });
     },
     async deleteLotDay(date: string) {
