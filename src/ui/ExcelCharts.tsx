@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Bar, CartesianGrid, Cell, ComposedChart, LabelList, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useNarrow } from './useNarrow';
 import type { ReportData } from '../data/useReportData';
@@ -36,7 +37,7 @@ export function perMonthSeries(d: ReportData, year: number): Point[] {
 export function lotMonthSeries(d: ReportData, year: number): Point[] {
   const months = monthsIn({ kind: 'year', year });
   const t = monthlyLot(months, d.lot, d.summaries);
-  const pts: Point[] = months.map((m, i) => ({ name: short(m), pct: t[i].pct, target: targetFor(d.targets, m).lotOutTarget }));
+  const pts: Point[] = months.map((m, i) => ({ name: short(m), month: m, pct: t[i].pct, target: targetFor(d.targets, m).lotOutTarget }));
   pts.push({ name: String(year), pct: sumLot(t).pct, target: targetFor(d.targets, months[0]).lotOutTarget });
   const y = d.prevYear.yearSummary;
   const prev = y && y.lotSent
@@ -116,15 +117,19 @@ const range = (vals: (number | null | string)[], digits: number) => {
   return lo === hi ? fmtNum(lo, digits) : `${fmtNum(lo, digits)}–${fmtNum(hi, digits)}`;
 };
 
-export function ExcelChart({ title, sub, data, bars, line, height = 300, unit = '', soft, judge }: {
+export function ExcelChart({ title, sub, data, bars, line, height = 300, unit = '', soft, judge, onPick }: {
   title: string; sub?: string; data: Point[]; bars: Series[]; line?: Series;
   height?: number; unit?: string;
+  /** Makes a column clickable; return false for columns that open nothing (a pointer shows only on the others). */
+  onPick?: { can: (p: Point) => boolean; go: (p: Point) => void };
   /** Colours a single bar green when its column met the target, red when it missed. */
   judge?: (p: Point) => boolean | null;
   /** Lighter bar colour for summary columns such as AVG-25 or the year totals. */
   soft?: { color: string; from: number };
 }) {
   const compact = bars.length > 1;
+  const [hover, setHover] = useState<number | null>(null);
+  const canPick = (i: number | null | undefined) => onPick && i != null && data[i] ? onPick.can(data[i]) : false;
   const fmtBar = (digits: number) => (v: number) => (compact && Math.abs(v) >= 1000 ? `${fmtNum(v / 1000, 1)}k` : fmtNum(v, digits));
   const dense = data.length > 16;
   // On a phone the month names skip when they would touch, and paired bars leave their values to the tooltip.
@@ -136,7 +141,7 @@ export function ExcelChart({ title, sub, data, bars, line, height = 300, unit = 
     ...(line ? [{ name: `${line.name} ${range(data.map((p) => p[line.key]), line.digits)}${unit}`, color: line.color, line: true }] : []),
   ];
   return (
-    <figure className="chart">
+    <figure className="chart" style={canPick(hover) ? { cursor: 'pointer' } : undefined}>
       <figcaption>
         <span className="chart-title">{title}{sub && <small>{sub}</small>}</span>
         <span className="chart-legend">
@@ -144,14 +149,21 @@ export function ExcelChart({ title, sub, data, bars, line, height = 300, unit = 
         </span>
       </figcaption>
       <ResponsiveContainer width="100%" height={height}>
-        <ComposedChart data={data} margin={{ top: compact ? 62 : 26, right: 8, left: 0, bottom: 0 }} barGap={1} barCategoryGap={compact ? '6%' : '22%'}>
+        <ComposedChart data={data} margin={{ top: compact ? 62 : 26, right: 8, left: 0, bottom: 0 }} barGap={1} barCategoryGap={compact ? '6%' : '22%'}
+          {...(onPick ? {
+            // The whole column answers, not only the bar: a small bar is hard to hit.
+            onMouseMove: (e: { activeTooltipIndex?: number } | null) => setHover(e?.activeTooltipIndex ?? null),
+            onMouseLeave: () => setHover(null),
+            onClick: (e: { activeTooltipIndex?: number } | null) => { const i = e?.activeTooltipIndex; if (canPick(i)) onPick.go(data[i as number]); },
+          } : {})}>
           <CartesianGrid stroke="#eeedf6" strokeDasharray="4 4" vertical={false} />
           <XAxis dataKey="name" tick={<XTick />} height={40} axisLine={{ stroke: '#dcdaea' }} tickLine={false} interval={narrow ? 'preserveStartEnd' : dense ? 1 : 0} minTickGap={narrow ? 6 : 5} />
           <YAxis tick={AXIS} axisLine={false} tickLine={false} width={compact ? 52 : 40}
             domain={compact ? [(lo: number) => (lo < 0 ? lo * 2.2 : 0), 'auto'] : [0, 'auto']}
             tickFormatter={(v: number) => (compact ? `${fmtNum(v / 1000, 0)}k` : fmtNum(v, bars[0].digits > 0 && Math.abs(v) < 10 ? 1 : 0))} />
-          <Tooltip cursor={{ fill: 'rgba(108,92,231,.06)' }}
-            formatter={(v: number, n: string) => [`${fmtNum(v, [...bars, ...(line ? [line] : [])].find((s) => s.name === n)?.digits ?? 0)}${unit}`, n]} />
+          <Tooltip cursor={{ fill: canPick(hover) ? 'rgba(108,92,231,.14)' : 'rgba(108,92,231,.06)' }}
+            formatter={(v: number, n: string) => [`${fmtNum(v, [...bars, ...(line ? [line] : [])].find((s) => s.name === n)?.digits ?? 0)}${unit}`, n]}
+            labelFormatter={(l: string, ps) => (onPick && ps?.[0] && onPick.can(ps[0].payload as Point) ? `${l} · กดเพื่อดูรายละเอียด` : l)} />
           {compact && <ReferenceLine y={0} stroke="#cfcde0" />}
           {bars.map((b) => (
             <Bar key={b.key} dataKey={b.key} name={b.name} fill={b.color} radius={[6, 6, 6, 6]} maxBarSize={dense ? 20 : compact ? 30 : 38} isAnimationActive={false}>
@@ -160,7 +172,7 @@ export function ExcelChart({ title, sub, data, bars, line, height = 300, unit = 
                 const ok = judge ? judge(p) : null;
                 const fill = b.key === 'variance' && typeof v === 'number' ? (v < 0 ? C.varDown : C.varUp)
                   : soft && i >= soft.from ? soft.color : ok === null ? b.color : ok ? C.varUp : C.varDown;
-                return <Cell key={i} fill={fill} />;
+                return <Cell key={i} fill={fill} fillOpacity={onPick && hover === i && canPick(i) ? 0.8 : 1} />;
               })}
               {!(narrow && (compact || data.length > 8)) && <LabelList dataKey={b.key} content={(props) => (dense && !(props as LabelProps).value ? null :
                 <BarValue {...(props as LabelProps)} fmt={fmtBar(b.digits)} vertical={compact}
@@ -192,8 +204,14 @@ export const PerMonthChart = ({ d, year, height }: { d: ReportData; year: number
 
 const lotOk = (p: Point) => (typeof p.pct === 'number' && typeof p.target === 'number' ? p.pct <= p.target : null);
 
-export const LotMonthChart = ({ d, year, height }: { d: ReportData; year: number; height?: number }) => (
-  <ExcelChart title={`Lot out FG % รายเดือน ${year}`} data={lotMonthSeries(d, year)} unit="%" height={height} soft={{ color: C.lotSoft, from: 12 }}
+/**
+ * `onPick` opens a month's Lot out FG detail. Months with Lot sent recorded open (a 0% month shows
+ * an empty list); months not entered yet and the year columns do nothing.
+ */
+export const LotMonthChart = ({ d, year, height, onPick }: { d: ReportData; year: number; height?: number; onPick?: (month: string) => void }) => (
+  <ExcelChart title={`Lot out FG % รายเดือน ${year}`} sub={onPick ? 'กดที่แท่งเพื่อดูรายละเอียด Lot out FG ของเดือนนั้น' : undefined}
+    onPick={onPick && { can: (p) => typeof p.month === 'string' && typeof p.pct === 'number', go: (p) => onPick(String(p.month)) }}
+    data={lotMonthSeries(d, year)} unit="%" height={height} soft={{ color: C.lotSoft, from: 12 }}
     judge={lotOk}
     bars={[{ key: 'pct', name: 'Lot out FG %', color: C.lot, digits: 2 }]}
     line={{ key: 'target', name: `${d.labels?.lot ?? 'เป้า'} ≤`, color: C.targetLow, digits: 2 }} />
