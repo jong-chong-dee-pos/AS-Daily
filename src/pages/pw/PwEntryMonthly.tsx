@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRepo } from '../../data/RepoContext';
 import { AGE_BUCKETS, type AgeBucket, type Buckets, type PwMonth } from '../../types';
 import { bucketTotal, emptyBuckets } from '../../calc/pw';
 import { AGE_COLOR, AGE_LABEL } from '../../ui/pwLabels';
 import { fmtMonth, fmtNum, MONTHS, todayIso } from '../../ui/format';
 import { parseNum } from '../EntryDaily';
+import { NumInput, useEnterMovesDown, useUnsavedGuard } from '../../ui/entryKit';
 
 type Single = 'stockDiff' | 'countPlan' | 'countActual' | 'perIssue' | 'perCount';
 const SINGLES: { key: Single; label: string; group: string; unit?: string }[] = [
@@ -41,6 +42,9 @@ export function PwEntryMonthly({ initialMonth }: { initialMonth?: string }) {
   const [recorded, setRecorded] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(true);
   const [dirty, setDirty] = useState(false);
+  const page = useRef<HTMLElement>(null);
+  useEnterMovesDown(page);
+  useUnsavedGuard(dirty);
   const [status, setStatus] = useState('');
   const [pending, setPending] = useState<string | null>(null);
 
@@ -94,7 +98,7 @@ export function PwEntryMonthly({ initialMonth }: { initialMonth?: string }) {
         {AGE_BUCKETS.map((k) => (
           <label key={k} className="ops-field">
             <span><i className="swatch" style={{ background: AGE_COLOR[k] }} aria-hidden="true" />{AGE_LABEL[k]}</span>
-            <input aria-label={`${title} ${AGE_LABEL[k]}`} inputMode="decimal" className={bad(form[side][k]) ? 'invalid' : ''}
+            <NumInput aria-label={`${title} ${AGE_LABEL[k]}`} inputMode="decimal" className={bad(form[side][k]) ? 'invalid' : ''}
               value={form[side][k]} onChange={(e) => { const v = e.target.value; edit((s) => ({ ...s, [side]: { ...s[side], [k]: v } })); }} />
           </label>
         ))}
@@ -104,7 +108,7 @@ export function PwEntryMonthly({ initialMonth }: { initialMonth?: string }) {
   );
 
   return (
-    <section>
+    <section ref={page}>
       <div className="page-head"><h1>กรอกข้อมูลรายเดือน</h1><span className="muted">Part Warehouse · {fmtMonth(month)}</span></div>
       <div className="toolbar">
         <button type="button" className="secondary sm" aria-label="เดือนก่อนหน้า" onClick={() => go(shiftMonth(-1))}>‹</button>
@@ -147,7 +151,7 @@ export function PwEntryMonthly({ initialMonth }: { initialMonth?: string }) {
                 <td>{i + 1}</td>
                 <td><input aria-label={`Part No. แถว ${i + 1}`} value={r.partNo} className={(r.qty.trim() && !r.partNo.trim()) || (dupNo && r.partNo.trim().toUpperCase() === dupNo) ? 'invalid' : ''}
                   onChange={(e) => { const v = e.target.value; edit((s) => ({ ...s, missing: s.missing.map((x, j) => (j === i ? { ...x, partNo: v } : x)) })); }} /></td>
-                <td className="num"><input aria-label={`Qty แถว ${i + 1}`} inputMode="numeric" style={{ width: 100 }} value={r.qty} className={bad(r.qty) ? 'invalid' : ''}
+                <td className="num"><NumInput aria-label={`Qty แถว ${i + 1}`} inputMode="numeric" style={{ width: 100 }} value={r.qty} className={bad(r.qty) ? 'invalid' : ''}
                   onChange={(e) => { const v = e.target.value; edit((s) => ({ ...s, missing: s.missing.map((x, j) => (j === i ? { ...x, qty: v } : x)) })); }} /></td>
                 <td><button type="button" className="secondary sm" aria-label={`ลบแถว ${i + 1}`} onClick={() => edit((s) => ({ ...s, missing: s.missing.filter((_, j) => j !== i) }))}>ลบ</button></td>
               </tr>
@@ -169,7 +173,7 @@ export function PwEntryMonthly({ initialMonth }: { initialMonth?: string }) {
               {SINGLES.filter((f) => f.group === g).map((f) => (
                 <label key={f.key} className="ops-field">
                   <span>{f.label}{f.unit && <small> ({f.unit})</small>}</span>
-                  <input aria-label={f.label} inputMode="decimal" className={bad(form.single[f.key]) ? 'invalid' : ''}
+                  <NumInput aria-label={f.label} inputMode="decimal" className={bad(form.single[f.key]) ? 'invalid' : ''}
                     value={form.single[f.key]} onChange={(e) => { const v = e.target.value; edit((s) => ({ ...s, single: { ...s.single, [f.key]: v } })); }} />
                 </label>
               ))}
@@ -179,7 +183,7 @@ export function PwEntryMonthly({ initialMonth }: { initialMonth?: string }) {
       </div>
 
       {invalid && <p className="error" role="alert">{missingRowsBad ? 'ทุกแถวของ Missing Part ต้องมี Part No. และ Qty เป็นตัวเลข' : dupNo ? `Part No. ${dupNo} ซ้ำ` : 'กรอกตัวเลข 0 ขึ้นไป'}</p>}
-      <div className="actions">
+      <div className="actions savebar">
         <button type="button" onClick={save} disabled={busy || invalid}>บันทึก</button>
         <span className="status" role="status">{status || (dirty ? 'ยังไม่ได้บันทึก' : '')}</span>
       </div>

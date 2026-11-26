@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRepo } from '../../data/RepoContext';
 import type { PwBaseline, PwTargets } from '../../types';
 import { bucketTotal } from '../../calc/pw';
 import { fmtNum } from '../../ui/format';
 import { parseNum } from '../EntryDaily';
 import { ImportSection, UsersSection } from '../Settings';
+import { NumInput, useEnterMovesDown } from '../../ui/entryKit';
 
 const FIELDS: { key: keyof PwTargets; label: string; hint: string }[] = [
   { key: 'missingMax', label: 'Missing Part: MAX ต่อเดือน', hint: 'เส้น MAX (รายการ)' },
@@ -40,6 +41,8 @@ export function TargetsForm() {
   const [vals, setVals] = useState<Record<keyof PwTargets, string> | null>(null);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
+  const form = useRef<HTMLDivElement>(null);
+  useEnterMovesDown(form);
   useEffect(() => {
     repo.getPwTargets().then((t) => setVals(Object.fromEntries(FIELDS.map((f) => [f.key, String(t[f.key])])) as Record<keyof PwTargets, string>))
       .catch(() => setStatus('โหลดข้อมูลไม่ได้ ลองอีกครั้ง'));
@@ -55,13 +58,13 @@ export function TargetsForm() {
     finally { setBusy(false); }
   };
   return (
-    <div className="panel" style={{ maxWidth: 900 }}>
+    <div className="panel" ref={form} style={{ maxWidth: 900 }}>
       <div className="panel-head"><h2>เป้าหมาย</h2><span className="hint">ใช้กับทุกเดือนในกราฟ ส่วนคอลัมน์ปีก่อนใช้เป้าของปีนั้น</span></div>
       <div className="ops-grid">
         {FIELDS.map((f) => (
           <label key={f.key} className="ops-field">
             <span>{f.label}<small> {f.hint}</small></span>
-            <input aria-label={f.label} inputMode="decimal" value={vals[f.key]} className={(() => { const n = parseNum(vals[f.key]); return n === null || Number.isNaN(n) ? 'invalid' : ''; })()}
+            <NumInput aria-label={f.label} inputMode="decimal" value={vals[f.key]} className={(() => { const n = parseNum(vals[f.key]); return n === null || Number.isNaN(n) ? 'invalid' : ''; })()}
               onChange={(e) => { const v = e.target.value; setVals((s) => ({ ...s!, [f.key]: v })); setStatus(''); }} />
           </label>
         ))}

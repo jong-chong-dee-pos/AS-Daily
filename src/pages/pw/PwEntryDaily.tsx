@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRepo } from '../../data/RepoContext';
 import { PLAN_GROUPS, type PlanGroup, type PwPlanDay } from '../../types';
 import { planTotal } from '../../calc/pw';
 import { PLAN_COLOR, PLAN_LABEL } from '../../ui/pwLabels';
 import { fmtDate, fmtMonth, fmtNum, todayIso } from '../../ui/format';
 import { parseNum } from '../EntryDaily';
+import { NextDay, NumInput, useEnterMovesDown, useUnsavedGuard } from '../../ui/entryKit';
 
 type Vals = Record<PlanGroup, string>;
 const blank = (): Vals => Object.fromEntries(PLAN_GROUPS.map((g) => [g, ''])) as Vals;
@@ -26,6 +27,10 @@ export function PwEntryDaily({ initialDate }: { initialDate?: string }) {
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState('');
   const [pending, setPending] = useState<string | null>(null);
+  const [savedDay, setSavedDay] = useState<string | null>(null);
+  const page = useRef<HTMLElement>(null);
+  useEnterMovesDown(page);
+  useUnsavedGuard(dirty);
 
   useEffect(() => { repo.getPwTargets().then((t) => setManpower(t.manpower)).catch(() => {}); }, [repo]);
   useEffect(() => {
@@ -53,13 +58,14 @@ export function PwEntryDaily({ initialDate }: { initialDate?: string }) {
       await repo.savePwPlanDay({ date, qty });
       setPlan((p) => [...p.filter((x) => x.date !== date), ...(Object.keys(qty).length ? [{ date, qty }] : [])].sort((a, b) => a.date.localeCompare(b.date)));
       setStatus(`บันทึกแผนวันที่ ${fmtDate(date)} แล้ว`); setDirty(false);
+      if (!pending) setSavedDay(date);
       if (pending) { setDate(pending); setPending(null); }
     } catch { setStatus('บันทึกไม่สำเร็จ ลองอีกครั้ง'); }
     finally { setBusy(false); }
   };
 
   return (
-    <section>
+    <section ref={page}>
       <div className="page-head"><h1>กรอกแผนประกอบรายวัน</h1><span className="muted">{fmtDate(date)}</span></div>
       <div className="toolbar">
         <button type="button" className="secondary sm" aria-label="วันก่อนหน้า" onClick={() => go(shiftDay(date, -1))}>‹</button>
@@ -89,8 +95,8 @@ export function PwEntryDaily({ initialDate }: { initialDate?: string }) {
           {PLAN_GROUPS.map((g) => (
             <label key={g} className="ops-field">
               <span><i className="swatch" style={{ background: PLAN_COLOR[g] }} aria-hidden="true" />{PLAN_LABEL[g]}</span>
-              <input aria-label={PLAN_LABEL[g]} inputMode="numeric" className={Number.isNaN(parseNum(vals[g])) ? 'invalid' : ''}
-                value={vals[g]} onChange={(e) => { setVals((v) => ({ ...v, [g]: e.target.value })); setDirty(true); setStatus(''); }} />
+              <NumInput aria-label={PLAN_LABEL[g]} inputMode="numeric" className={Number.isNaN(parseNum(vals[g])) ? 'invalid' : ''}
+                value={vals[g]} onChange={(e) => { setVals((v) => ({ ...v, [g]: e.target.value })); setDirty(true); setStatus(''); setSavedDay(null); }} />
             </label>
           ))}
         </div>
@@ -103,9 +109,10 @@ export function PwEntryDaily({ initialDate }: { initialDate?: string }) {
         </div>
       </div>
       {invalid && <p className="error" role="alert">กรอกตัวเลข 0 ขึ้นไป</p>}
-      <div className="actions">
+      <div className="actions savebar">
         <button type="button" onClick={save} disabled={busy || invalid}>บันทึก</button>
         <span className="status" role="status">{status || (dirty ? 'ยังไม่ได้บันทึก' : '')}</span>
+        {savedDay === date && !dirty && <NextDay date={date} onGo={(d) => { setSavedDay(null); setStatus(''); setDate(d); }} />}
       </div>
       {plan.length > 0 && (
         <>

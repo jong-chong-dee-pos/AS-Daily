@@ -12,7 +12,7 @@ export function AreaChooser({ manageUsers = true }: { manageUsers?: boolean }) {
     <div className="chooser">
       <div className="backdrop" aria-hidden="true"><i /><i /><i /></div>
       <header className="chooser-top">
-        <div className="brand"><span className="brand-mark">AS</span><span>รายงานประจำวัน</span></div>
+        <div className="brand"><span className="brand-mark">AS</span><span>AS&amp;PWH Report</span></div>
         {user && (
           <div className="chooser-who">
             <span className="who-text"><b>{user.name}</b><small>{user.role === 'admin' ? 'ผู้ดูแลระบบ' : user.email}</small></span>

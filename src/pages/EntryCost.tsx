@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRepo } from '../data/RepoContext';
 import { variance } from '../calc/cost';
 import { COST_CATEGORIES, type CostCategory, type OpsMonth } from '../types';
@@ -7,6 +7,7 @@ import { COST_LABEL } from '../ui/labels';
 import { opsDerived } from '../calc/ops';
 import { parseNum } from './EntryDaily';
 import { OtdUpload } from './OtdUpload';
+import { NumInput, useEnterMovesDown, useUnsavedGuard } from '../ui/entryKit';
 
 type OpsKey = Exclude<keyof OpsMonth, 'month'>;
 /** The monthly production and cost figures, in the order they are typed. */
@@ -41,6 +42,9 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
   const [busy, setBusy] = useState(true);
   const [recorded, setRecorded] = useState<Set<string>>(new Set());
   const [dirty, setDirty] = useState(false);
+  const page = useRef<HTMLElement>(null);
+  useEnterMovesDown(page);
+  useUnsavedGuard(dirty);
   const year = Number(month.slice(0, 4));
   const shiftMonth = (n: number) => {
     const [y, m] = month.split('-').map(Number); const t = y * 12 + (m - 1) + n;
@@ -98,7 +102,7 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
   };
 
   return (
-    <section>
+    <section ref={page}>
       <div className="page-head"><h1>กรอกข้อมูลรายเดือน</h1><span className="muted">{fmtMonth(month)}</span></div>
       <div className="toolbar">
         <button type="button" className="secondary sm" aria-label="เดือนก่อนหน้า" onClick={() => go(shiftMonth(-1))}>‹</button>
@@ -129,7 +133,7 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
               {OPS_FIELDS.filter((f) => f.group === g).map((f) => (
                 <label key={f.key} className="ops-field">
                   <span>{f.label}{f.unit && <small> ({f.unit})</small>}</span>
-                  <input aria-label={f.label} inputMode="decimal" className={Number.isNaN(opsNum(f.key)) ? 'invalid' : ''}
+                  <NumInput aria-label={f.label} inputMode="decimal" className={Number.isNaN(opsNum(f.key)) ? 'invalid' : ''}
                     placeholder={f.hint ?? ''} value={ops[f.key]} onChange={(e) => setOp(f.key, e.target.value)} />
                 </label>
               ))}
@@ -157,7 +161,7 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
                   <td>{COST_LABEL[k]}</td>
                   {(['standard', 'actual'] as const).map((f) => (
                     <td key={f} className="num">
-                      <input id={`${k}-${f}`} aria-label={`${COST_LABEL[k]} ${f === 'standard' ? 'Standard' : 'Actual'}`}
+                      <NumInput id={`${k}-${f}`} aria-label={`${COST_LABEL[k]} ${f === 'standard' ? 'Standard' : 'Actual'}`}
                         inputMode="decimal" style={{ width: 130 }}
                         className={Number.isNaN(parseNum(vals[k][f])) ? 'invalid' : ''}
                         value={vals[k][f]} onChange={(e) => set(k, f, e.target.value)} />
@@ -173,7 +177,7 @@ export function EntryCost({ initialMonth }: { initialMonth?: string }) {
         </table>
       </div>
       {invalid && <p className="error" role="alert">กรอกตัวเลข 0 ขึ้นไป</p>}
-      <div className="actions">
+      <div className="actions savebar">
         <button type="button" onClick={save} disabled={busy || invalid}>บันทึก</button>
         <span className="status" role="status">{status || (dirty ? 'ยังไม่ได้บันทึก' : '')}</span>
       </div>
