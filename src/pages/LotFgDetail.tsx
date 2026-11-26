@@ -1,3 +1,4 @@
+import { ap } from '../areas';
 import { Photo } from '../ui/Photo';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -40,7 +41,7 @@ export function LotFgDetail() {
     <section>
       <div className="page-head">
         <h1>รายละเอียด Lot out FG</h1>
-        <Link to={`/report/lot?y=${month.slice(0, 4)}`} className="muted">‹ กลับไปหน้า Lot out</Link>
+        <Link to={ap(`/report/lot?y=${month.slice(0, 4)}`)} className="muted">‹ กลับไปหน้า Lot out</Link>
       </div>
       <div className="toolbar">
         <button type="button" className="secondary sm" aria-label="เดือนก่อนหน้า" onClick={() => go(shift(month, -1))}>‹</button>
@@ -62,7 +63,7 @@ export function LotFgDetail() {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id}>
-                  <td style={{ whiteSpace: 'nowrap' }}><Link to={`/entry/daily?d=${r.date}`}>{fmtDate(r.date)}</Link></td>
+                  <td style={{ whiteSpace: 'nowrap' }}><Link to={ap(`/entry/daily?d=${r.date}`)}>{fmtDate(r.date)}</Link></td>
                   <td><b>{lineName(r.lineId)}</b></td>
                   <td>{r.product || '—'}</td>
                   <td>{r.partNo || '—'}</td>

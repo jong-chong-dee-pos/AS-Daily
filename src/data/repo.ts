@@ -62,7 +62,9 @@ export function makeRepo(db: Firestore, uid: () => string, options?: FirebaseOpt
     return IMG_PREFIX + id;
   };
   const base = makeArtifactRepo(adapter, uploadImage);
-  const saveUser = (u: AppUser) => setDoc(doc(db, 'users', u.uid), { name: u.name, email: u.email, role: u.role, updatedBy: uid(), updatedAt: serverTimestamp() });
+  const saveUser = (u: AppUser) => setDoc(doc(db, 'users', u.uid), {
+    name: u.name, email: u.email, role: u.role, ...(u.areas ? { areas: u.areas } : {}), updatedBy: uid(), updatedAt: serverTimestamp(),
+  });
   return {
     ...base,
     getImage: async (id: string) => String((await getDoc(doc(db, 'images', id))).data()?.data ?? ''),

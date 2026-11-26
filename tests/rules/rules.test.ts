@@ -22,6 +22,11 @@ beforeEach(async () => {
     for (const [uid, role] of [['ad', 'admin'], ['ed', 'editor'], ['vw', 'viewer']]) {
       await setDoc(doc(db, 'users', uid), { name: uid, email: `${uid}@x`, role });
     }
+    // Per-area access set by an admin.
+    await setDoc(doc(db, 'users', 'no'), { name: 'no', email: 'no@x', role: 'viewer', areas: { assembly: 'none', partWarehouse: 'none' } });
+    await setDoc(doc(db, 'users', 'pw'), { name: 'pw', email: 'pw@x', role: 'editor', areas: { assembly: 'view', partWarehouse: 'edit' } });
+    await setDoc(doc(db, 'users', 'ae'), { name: 'ae', email: 'ae@x', role: 'editor', areas: { assembly: 'edit', partWarehouse: 'view' } });
+    await setDoc(doc(db, 'areas', 'partWarehouse', 'stock', '2026-11'), { month: '2026-11' });
     await setDoc(doc(db, 'costMonthly', '2026-11'), { month: '2026-11' });
   });
 });
@@ -65,5 +70,38 @@ describe('firestore rules', () => {
   });
   it('user cannot raise own role', async () => {
     await assertFails(setDoc(doc(as('vw'), 'users', 'vw'), { name: 'vw', email: 'vw@x', role: 'admin' }));
+  });
+
+  it('user without Assembly access reads no Assembly data or settings', async () => {
+    for (const c of ['costMonthly', 'perMonth', 'lines', 'settings', 'opsMonthly']) await assertFails(getDoc(doc(as('no'), c, '2026-11')));
+    await assertSucceeds(getDoc(doc(as('no'), 'users', 'no')));
+  });
+  it('Assembly access comes from the per-area setting, not the role', async () => {
+    // role editor but Assembly view-only: reads, cannot write
+    await assertSucceeds(getDoc(doc(as('pw'), 'costMonthly', '2026-11')));
+    await assertFails(setDoc(doc(as('pw'), 'perMonth', '2026-11'), per('pw')));
+    await assertSucceeds(setDoc(doc(as('ae'), 'perMonth', '2026-11'), per('ae')));
+  });
+  it('Part Warehouse data is separate and needs its own access', async () => {
+    const pwDoc = (uid: string) => doc(as(uid), 'areas', 'partWarehouse', 'stock', '2026-11');
+    await assertFails(getDoc(pwDoc('vw'))); // no entry: closed by default
+    await assertFails(getDoc(pwDoc('ed')));
+    await assertSucceeds(getDoc(pwDoc('ae')));
+    await assertFails(setDoc(pwDoc('ae'), { month: '2026-11', updatedBy: 'ae' }));
+    await assertSucceeds(setDoc(pwDoc('pw'), { month: '2026-11', updatedBy: 'pw' }));
+    await assertFails(setDoc(pwDoc('pw'), { month: '2026-11', updatedBy: 'ad' }));
+    await assertSucceeds(setDoc(pwDoc('ad'), { month: '2026-11', updatedBy: 'ad' }));
+  });
+  it('Assembly data cannot be reached through the areas path', async () => {
+    await assertFails(setDoc(doc(as('ad'), 'areas', 'assembly', 'perMonth', '2026-11'), per('ad')));
+  });
+  it('users read only their own account; admins read all', async () => {
+    await assertSucceeds(getDoc(doc(as('vw'), 'users', 'vw')));
+    await assertFails(getDoc(doc(as('vw'), 'users', 'ad')));
+    await assertSucceeds(getDoc(doc(as('ad'), 'users', 'vw')));
+  });
+  it('user cannot give themselves area access', async () => {
+    await assertFails(setDoc(doc(as('vw'), 'users', 'vw'), { name: 'vw', email: 'vw@x', role: 'viewer', areas: { assembly: 'edit' } }));
+    await assertFails(setDoc(doc(as('pw'), 'users', 'pw'), { name: 'pw', email: 'pw@x', role: 'editor', areas: { assembly: 'edit', partWarehouse: 'edit' } }));
   });
 });

@@ -14,7 +14,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const snap = await getDoc(doc(db, 'users', fb.uid));
       if (!snap.exists()) return setState({ user: null, noRole: true, loading: false });
       const d = snap.data();
-      setState({ user: { uid: fb.uid, name: d.name ?? fb.email ?? '', email: fb.email ?? '', role: d.role }, noRole: false, loading: false });
+      setState({ user: { uid: fb.uid, name: d.name ?? fb.email ?? '', email: fb.email ?? '', role: d.role, ...(d.areas ? { areas: d.areas } : {}) }, noRole: false, loading: false });
     } catch {
       setState({ user: null, noRole: true, loading: false });
     }

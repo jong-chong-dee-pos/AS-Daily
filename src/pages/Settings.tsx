@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRepo } from '../data/RepoContext';
 import { useAuth } from '../auth/context';
+import { ACCESS_TH, AREAS, accessOf, roleFor } from '../areas';
 import { DEFAULT_LOT_OUT_TARGET, DEFAULT_PER_TARGET } from '../calc/cost';
-import { DEFAULT_TARGET_LABELS, type AppUser, type Line, type MonthlySummary, type Role, type Setter, type Target, type TargetLabels, type Worker } from '../types';
+import { DEFAULT_TARGET_LABELS, type AppUser, type AreaAccess, type AreaId, type Line, type MonthlySummary, type Setter, type Target, type TargetLabels, type Worker } from '../types';
 import { fmtMonth, THAI_MONTHS } from '../ui/format';
 import { CrudTable } from '../ui/CrudTable';
 import type { WorkerRef } from '../data/artifactRepo';
@@ -13,8 +14,8 @@ const numOrNull = (s: string) => { const n = parseNum(s); return n === null || N
 
 type Tab = 'lines' | 'setters' | 'workers' | 'targets' | 'summary' | 'users' | 'import';
 
-export function Settings({ manageUsers = true }: { manageUsers?: boolean }) {
-  const [tab, setTab] = useState<Tab>('lines');
+export function Settings({ manageUsers = true, initialTab }: { manageUsers?: boolean; initialTab?: Tab }) {
+  const [tab, setTab] = useState<Tab>(initialTab ?? 'lines');
   const canImport = !!useRepo().importDocs;
   const tabs: [Tab, string][] = [['lines', 'U-Line'], ['setters', 'Setter'], ['workers', 'พนักงาน'], ['targets', 'เป้าหมายรายเดือน'], ['summary', 'ข้อมูลสรุปย้อนหลัง'],
     ...(manageUsers ? [['users', 'ผู้ใช้และสิทธิ์'] as [Tab, string]] : []), ...(canImport ? [['import', 'นำเข้าข้อมูล'] as [Tab, string]] : [])];
@@ -377,27 +378,31 @@ export function SummarySection() {
   );
 }
 
-const ROLE: Record<Role, string> = { admin: 'ผู้ดูแล', editor: 'ผู้กรอก', viewer: 'ผู้ดู' };
-type UserRow = AppUser & { key: string; password: string };
+type UserRow = Omit<AppUser, 'areas'> & { key: string; password: string; admin: boolean; areas: Record<AreaId, AreaAccess> };
+const ACCESS_OPTIONS: AreaAccess[] = ['none', 'view', 'edit'];
+/** The access each area shows in the table: what the user has today, including the defaults. */
+const rowAreas = (u: Pick<AppUser, 'role' | 'areas'>) =>
+  Object.fromEntries(AREAS.map((a) => [a.id, u.role === 'admin' ? (u.areas?.[a.id] ?? accessOf({ role: 'editor' }, a.id)) : accessOf(u, a.id)])) as Record<AreaId, AreaAccess>;
 export function UsersSection() {
   const repo = useRepo();
   const { user: me } = useAuth();
-  const { rows, reload } = useList(useCallback(async () => (await repo.listUsers()).map((u): UserRow => ({ ...u, key: u.uid, password: '' })), [repo]));
+  const { rows, reload } = useList(useCallback(async () => (await repo.listUsers()).map((u): UserRow => (
+    { ...u, key: u.uid, password: '', admin: u.role === 'admin', areas: rowAreas(u) })), [repo]));
   const isNew = (u: UserRow) => !u.uid;
   return (
     <CrudTable<UserRow>
       title="ผู้ใช้และสิทธิ์" rows={rows} getId={(u) => u.key} addLabel="เพิ่มผู้ใช้"
-      newRow={() => ({ key: newId('u'), uid: '', name: '', email: '', role: 'viewer', password: '' })}
+      newRow={() => ({ key: newId('u'), uid: '', name: '', email: '', role: 'viewer', password: '', admin: false, areas: { assembly: 'view', partWarehouse: 'none' } })}
       validate={(u, all) => {
         if (!u.name.trim() || !/^\S+@\S+\.\S+$/.test(u.email.trim())) return 'กรอกชื่อและอีเมลให้ถูกต้อง';
         if (isNew(u) && u.password.length < 6) return 'รหัสผ่านอย่างน้อย 6 ตัวอักษร';
         if (all.some((x) => x !== u && x.email.trim().toLowerCase() === u.email.trim().toLowerCase())) return `อีเมล ${u.email} ซ้ำ`;
-        if (u.uid === me?.uid && u.role !== 'admin') return 'เปลี่ยนสิทธิ์ของตัวเองไม่ได้';
+        if (u.uid === me?.uid && !u.admin) return 'เอาสิทธิ์ผู้ดูแลระบบของตัวเองออกไม่ได้';
         return null;
       }}
       onSave={async (ups, deletedIds) => {
         for (const u of ups) {
-          const v = { name: u.name.trim(), email: u.email.trim(), role: u.role };
+          const v = { name: u.name.trim(), email: u.email.trim(), role: roleFor(u.admin, u.areas), areas: { ...u.areas } };
           if (isNew(u)) {
             if (!repo.createUser) throw new Error('สร้างบัญชีได้เฉพาะเว็บ Firebase');
             try { await repo.createUser(v, u.password); } catch (e) {
@@ -409,7 +414,7 @@ export function UsersSection() {
         for (const id of deletedIds) if (id !== me?.uid) await repo.deleteUser?.(id);
         await reload();
       }}
-      note="ผู้ดู = ดูรายงานและ Export ได้อย่างเดียว · ผู้ดูแล = กรอกข้อมูลและตั้งค่าได้ · ส่งอีเมลและรหัสผ่านเริ่มต้นให้แต่ละคนเอง · ลบ = เอาสิทธิ์เข้าดูออก"
+      note="กำหนดสิทธิ์แยกแต่ละพื้นที่งาน: ไม่มีสิทธิ์ = มองไม่เห็นพื้นที่งานนั้น · ดูอย่างเดียว = ดูรายงานและ Export · ดูและกรอกข้อมูล = กรอกข้อมูลรายวันและรายเดือนได้ด้วย · ผู้ดูแลระบบ = ทำได้ทุกอย่างทุกพื้นที่งาน รวมถึงตั้งค่าและจัดการผู้ใช้ · ส่งอีเมลและรหัสผ่านเริ่มต้นให้แต่ละคนเอง · ลบ = เอาสิทธิ์เข้าดูออก"
       columns={[
         { label: 'ชื่อ', render: (u, set) => <input aria-label="ชื่อผู้ใช้" className="mid" value={u.name} onChange={(e) => set({ name: e.target.value })} /> },
         { label: 'อีเมล (ใช้ล็อกอิน)', render: (u, set) => isNew(u)
@@ -418,11 +423,16 @@ export function UsersSection() {
         { label: 'รหัสผ่านเริ่มต้น', render: (u, set) => isNew(u)
           ? <input aria-label="รหัสผ่านเริ่มต้น" className="mid" value={u.password} placeholder="อย่างน้อย 6 ตัว" onChange={(e) => set({ password: e.target.value })} />
           : <span className="hint">ตั้งไว้แล้ว</span> },
-        { label: 'สิทธิ์', render: (u, set) => (
-          <select aria-label={`สิทธิ์ ${u.name}`} value={u.role} onChange={(e) => set({ role: e.target.value as Role })}>
-            {(['viewer', 'editor', 'admin'] as Role[]).map((r) => <option key={r} value={r}>{ROLE[r]}</option>)}
-          </select>
+        { label: 'ผู้ดูแลระบบ', render: (u, set) => (
+          <label className="admin-check"><input type="checkbox" aria-label={`ผู้ดูแลระบบ ${u.name}`} checked={u.admin} onChange={(e) => set({ admin: e.target.checked })} /></label>
         ) },
+        ...AREAS.map((a) => ({ label: a.label, render: (u: UserRow, set: (p: Partial<UserRow>) => void) => u.admin
+          ? <span className="hint">ทุกสิทธิ์</span>
+          : (
+            <select aria-label={`สิทธิ์ ${a.label} ${u.name}`} value={u.areas[a.id]} onChange={(e) => set({ areas: { ...u.areas, [a.id]: e.target.value as AreaAccess } })}>
+              {ACCESS_OPTIONS.map((x) => <option key={x} value={x}>{ACCESS_TH[x]}</option>)}
+            </select>
+          ) })),
       ]}
     />
   );

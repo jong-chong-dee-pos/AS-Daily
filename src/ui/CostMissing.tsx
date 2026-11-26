@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { atLeast, useAuth } from '../auth/context';
+import { useAuth } from '../auth/context';
+import { ap, canEdit } from '../areas';
 import type { ReportData } from '../data/useReportData';
 import { monthsIn } from '../calc/period';
 import type { Period } from '../types';
@@ -22,7 +23,7 @@ export function CostMissing({ months, all }: { months: string[]; all: boolean })
       <b>{all ? `ยังไม่ได้กรอกต้นทุนของ ${names}` : `ยังไม่ได้กรอกต้นทุน: ${names}`}</b>
       <span>
         Variance จะแสดงเมื่อกรอกทั้ง Standard และ Actual แล้ว
-        {atLeast(user?.role, 'editor') && <> · <Link to={`/entry/cost?m=${last}`}>ไปกรอกต้นทุน {fmtMonth(last)}</Link></>}
+        {canEdit(user, 'assembly') && <> · <Link to={ap(`/entry/cost?m=${last}`)}>ไปกรอกต้นทุน {fmtMonth(last)}</Link></>}
       </span>
     </div>
   );

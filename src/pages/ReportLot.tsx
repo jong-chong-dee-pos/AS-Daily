@@ -1,3 +1,4 @@
+import { ap } from '../areas';
 import { useMemo } from 'react';
 import { useReportData, type ReportData } from '../data/useReportData';
 import { datesIn, monthsIn, monthOf } from '../calc/period';
@@ -70,7 +71,7 @@ export function ReportLot() {
         <div id="report-lot">
           {yd && (
             <>
-              <div className="charts single"><SentFgChart d={yd} year={year} onPick={(m) => navigate(`/report/lot/fg?m=${m}`)} /></div>
+              <div className="charts single"><SentFgChart d={yd} year={year} onPick={(m) => navigate(ap(`/report/lot/fg?m=${m}`))} /></div>
               {monthSummary && (
                 <div className="notice" role="note">
                   <b>{fmtMonth(period.kind === 'month' ? period.month : '')} นำเข้าจาก Excel: ส่งตรวจ {monthSummary.lotSent ?? 0} Lot · Lot out {monthSummary.lotOut ?? 0} Lot</b>
