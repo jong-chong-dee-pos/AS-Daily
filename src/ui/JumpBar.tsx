@@ -57,13 +57,13 @@ export function JumpBar({ items }: { items: JumpItem[] }) {
   const go = (id: string) => {
     const el = document.getElementById(id);
     if (!el) return;
-    const y = el.getBoundingClientRect().top + window.scrollY - headerHeight() - (ref.current?.offsetHeight ?? 0) - 12;
+    const y = el.getBoundingClientRect().top + window.scrollY - headerHeight() - (ref.current?.offsetHeight ?? 0) - 22;
     window.scrollTo({ top: Math.max(0, y), behavior: matches('(prefers-reduced-motion: reduce)') ? 'auto' : 'smooth' });
     setCurrent(id);
   };
 
   return (
-    <nav ref={ref} className="jumpbar" aria-label="ไปที่หัวข้อ" style={{ top }}>
+    <nav ref={ref} className="jumpbar" aria-label="ไปที่หัวข้อ" style={{ top: top + 10 }}>
       {items.map((it) => (
         <button key={it.id} type="button" aria-current={current === it.id ? 'true' : undefined} onClick={() => go(it.id)}>{it.label}</button>
       ))}
